@@ -19,6 +19,7 @@ def _print_tags(tags):
     print '\n'.join('\t\t' + k + ': ' + str(v)
                     for k, v in sorted(tags.iteritems()))
 
+
 def _print_changes(old, new):
     keys = dict((key, None) for key in chain(old.iterkeys(), new.iterkeys()))
     keys = sorted(keys.iterkeys())
@@ -30,7 +31,6 @@ def _print_changes(old, new):
         old_v, new_v = _value2str(old.get(key)), _value2str(new.get(key))
         if old_v != new_v:
             print '\t\t%s: %r -> %r' % (key, old_v, new_v)
-
 
 
 def filename_from_tags(tags):
@@ -109,7 +109,6 @@ def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
             year_re = _RE_GET_DATE_FROM_CR.match(copyr[0])
             if year_re and year_re.group(1):
                 tags['date'] = [str(year_re.group(1))]
-    #print 'Result: '
     return tags
 
 
@@ -119,6 +118,8 @@ def _parse_opt():
     group = optparse.OptionGroup(optp, "Command")
     group.add_option('--rename', '-R', action="store_true", default=False,
                      help='rename files', dest="action_rename")
+    group.add_option('--rename-dir', '-D', action="store_true", default=False,
+                     help="rename given directory", dest="action_ren_dir")
     group.add_option('--fix-tags', '-F', action="store_true",
                      default=False,
                      help='fix common problems in tags',
@@ -149,6 +150,7 @@ def _accepted_file(filename):
     return os.path.isfile(filename) and \
         os.path.splitext(filename)[1].lower() in ('.mp3', '.ogg')
 
+
 def _rename_file(filename, tags):
     curr_filename = os.path.basename(filename)
     curr_dir = os.path.dirname(filename)
@@ -160,9 +162,43 @@ def _rename_file(filename, tags):
         os.rename(filename, os.path.join(curr_dir, dst_filename))
 
 
-def main(dirname='.'):
-    opts, args = _parse_opt()
-    files = []
+def _rename_dir(dirnames, _opts):
+    dirnames = [dname
+                for dname in dirnames or []
+                if os.path.isdir(dname)]
+    if not dirnames:
+        print '[E] Missing dir names for rename'
+        exit(-1)
+
+    for dname in dirnames:
+        print 'Processing %s' % dname
+        # 1. find first file
+        mfiles = [fname for fname in os.listdir(dname)
+                  if _accepted_file(os.path.join(dname, fname))]
+        dst_name = None
+        for mfile in mfiles:
+            tags = mutagen.File(os.path.join(dname, mfile), easy=True)
+            date = tags.get('date')
+            album = tags.get('album')
+            if album and album[0]:
+                if date and date[0]:
+                    date = date[0].split('-')[0]
+                    dst_name = " ".join((date, album[0]))
+                else:
+                    dst_name = album[0]
+                dst_name = dst_name.lower()
+                break
+        else:
+            print '[E] No media files in %s. Skipping...' % dname
+            continue
+        if dst_name is None:
+            print '[E] No valid tags found in %s. Skipping...' % dname
+        elif dst_name != dname:
+            print '\tRenaming %s -> %s' % (dname, dst_name)
+            os.rename(dname, dst_name)
+
+
+def _find_files(opts, args):
     if opts.find_files:
         files = [fname for fname in os.listdir('.') if _accepted_file(fname)]
     else:
@@ -170,6 +206,16 @@ def main(dirname='.'):
     if not files:
         print 'Error: missing input files'
         exit(-1)
+
+    return files
+
+
+def main(dirname='.'):
+    opts, args = _parse_opt()
+    if opts.action_ren_dir:
+        _rename_dir(args, opts)
+        return
+    files = _find_files(opts, args)
     for idx, filename in enumerate(sorted(files)):
         print 'Processing:', filename
         tags = mutagen.File(filename, easy=True)
