@@ -4,6 +4,8 @@
 import os
 import re
 import unicodedata
+import optparse
+from itertools import chain
 
 import mutagen
 
@@ -14,8 +16,21 @@ _RE_CHECK_TRACK_NUM = re.compile(r'^(\d+)/(\d+)')
 
 
 def _print_tags(tags):
-    print '\n'.join('\t' + k + ': ' + str(v)
+    print '\n'.join('\t\t' + k + ': ' + str(v)
                     for k, v in sorted(tags.iteritems()))
+
+def _print_changes(old, new):
+    keys = dict((key, None) for key in chain(old.iterkeys(), new.iterkeys()))
+    keys = sorted(keys.iterkeys())
+
+    def _value2str(val):
+        return str(val[0]) if val else ''
+
+    for key in keys:
+        old_v, new_v = _value2str(old.get(key)), _value2str(new.get(key))
+        if old_v != new_v:
+            print '\t\t%s: %r -> %r' % (key, old_v, new_v)
+
 
 
 def filename_from_tags(tags):
@@ -28,14 +43,49 @@ def filename_from_tags(tags):
     return unicodedata.normalize('NFKD', fname).encode('ascii', 'ignore')
 
 
-def process_file(filename, idx, len_files):
-    print 'Processing ', filename
-    tags = mutagen.File(filename, easy=True)
-    _print_tags(tags)
+def _parse_tracknum(tracknum):
+    tracknum = tracknum.strip()
+    if not tracknum:
+        return None, None
+    if '/' in tracknum:
+        return [int(tr.strip()) for tr in tracknum.split('/')]
+    return int(tracknum), None
+
+
+def _fix_tags(tags, filename, idx, len_files, opts):
     # fix performer
     if not tags.get('performer'):
         if tags.get('artist'):
-            tags['performer'] = [tags['artist'][0]]
+            artist = tags['artist'][0]
+            if 'feat.' in artist:
+                artist = artist.split('feat.')[0]
+            artist = artist.strip(' [()]')
+            tags['performer'] = [artist]
+    if len_files == 1:
+        # remove track number when only one file
+        if 'tracknumber' in tags:
+            del tags['tracknumber']
+    else:
+        if opts.opt_album:
+            c_track, c_alltracks = idx, len_files
+            tracknumber = tags.get('tracknumber')
+            if tracknumber and tracknumber[0]:
+                c_track, c_alltracks = _parse_tracknum(tracknumber[0])
+                if c_alltracks and c_alltracks != len_files:
+                    print ('[W] Wrong all track number in %s '
+                           '(current: %s, all files: %s)' %
+                           (filename, idx, len_files))
+                if not c_alltracks:
+                    c_alltracks = len_files
+            tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
+        else:
+            # TODO: single mode?
+            if 'tracknumber' in tags:
+                del tags['tracknumber']
+    return tags
+
+
+def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
     # fix title
     artist = tags.get('artist')
     title = os.path.splitext(os.path.basename(filename))[0]
@@ -59,48 +109,89 @@ def process_file(filename, idx, len_files):
             year_re = _RE_GET_DATE_FROM_CR.match(copyr[0])
             if year_re and year_re.group(1):
                 tags['date'] = [str(year_re.group(1))]
-    # fix tracknumber
-    if len_files == 1:
-        # remove track number when only one file
-        if 'tracknumber' in tags:
-            del tags['tracknumber']
-    else:
-        curr_tracknum = tags.get('tracknumber')
-        if curr_tracknum and curr_tracknum[0]:
-            if not _RE_CHECK_TRACK_NUM.match(curr_tracknum[0]):
-                curr_tracknum = curr_tracknum[0]
-                try:
-                    curr_tracknum = "%02d" % int(curr_tracknum)
-                except ValueError:
-                    pass
-                tags['tracknumber'] = [curr_tracknum +
-                                       '/' +
-                                       str(len_files)]
-        else:
-            tags['tracknumber'] = [("%02d" % idx) + '/' + str(len_files)]
     #print 'Result: '
-    _print_tags(tags)
-    tags.save()
-    print 'Saved\n'
     return tags
 
 
+def _parse_opt():
+    """ Parse cli options. """
+    optp = optparse.OptionParser("pyEasyTag")
+    group = optparse.OptionGroup(optp, "Command")
+    group.add_option('--rename', '-R', action="store_true", default=False,
+                     help='rename files', dest="action_rename")
+    group.add_option('--fix-tags', '-F', action="store_true",
+                     default=False,
+                     help='fix common problems in tags',
+                     dest="action_fix_tags")
+    group.add_option('--fix-jamendo-tags', '-J', action="store_true",
+                     default=False,
+                     help='fix tags in files from Jamendo',
+                     dest="action_fix_jamendo_tags")
+    optp.add_option_group(group)
+    group = optparse.OptionGroup(optp, "Options")
+    group.add_option('--find-files', '-f', action="store_true", default=False,
+                     help='find files in current directory',
+                     dest="find_files")
+    group.add_option('--album', '-a', action="store_true", default=False,
+                     help='treat all files as one album',
+                     dest="opt_album")
+    optp.add_option_group(group)
+    group = optparse.OptionGroup(optp, "Debug options")
+    group.add_option('--debug', '-d', action="store_true", default=False,
+                     help='enable debug messages')
+    group.add_option('--verbose', '-v', action="store_true", default=False,
+                     help='enable more messages')
+    optp.add_option_group(group)
+    return optp.parse_args()
+
+
+def _accepted_file(filename):
+    return os.path.isfile(filename) and \
+        os.path.splitext(filename)[1].lower() in ('.mp3', '.ogg')
+
+def _rename_file(filename, tags):
+    curr_filename = os.path.basename(filename)
+    curr_dir = os.path.dirname(filename)
+    ext = os.path.splitext(curr_filename)[1]
+    dst_filename = filename_from_tags(tags) + ext
+    dst_filename = dst_filename.lower()
+    if dst_filename != curr_filename:
+        print '\tRename %s -> %s' % (curr_filename, dst_filename)
+        os.rename(filename, os.path.join(curr_dir, dst_filename))
+
+
 def main(dirname='.'):
+    opts, args = _parse_opt()
     files = []
-    for fname in os.listdir(dirname):
-        fullname = os.path.join(dirname, fname)
-        if os.path.isfile(fullname) and \
-                os.path.splitext(fname)[1].lower() in ('.mp3', '.ogg'):
-            files.append(fullname)
+    if opts.find_files:
+        files = [fname for fname in os.listdir('.') if _accepted_file(fname)]
+    else:
+        files = [fname for fname in args if _accepted_file(fname)]
+    if not files:
+        print 'Error: missing input files'
+        exit(-1)
     for idx, filename in enumerate(sorted(files)):
-        tags = process_file(filename, idx, len(files))
-        curr_filename = os.path.basename(filename)
-        ext = os.path.splitext(curr_filename)[1]
-        dst_filename = filename_from_tags(tags) + ext
-        dst_filename = dst_filename.lower()
-        if dst_filename != curr_filename:
-            print '\tRename %s -> %s' % (curr_filename, dst_filename)
-            os.rename(filename, os.path.join(dirname, dst_filename))
+        print 'Processing:', filename
+        tags = mutagen.File(filename, easy=True)
+        org_tabs = dict(tags)
+        if opts.debug:
+            print '\tOriginal:'
+            _print_tags(tags)
+        if opts.action_fix_jamendo_tags:
+            tags = _fix_jamendo_tags(tags, filename, idx, len(files), opts)
+        if opts.action_fix_tags:
+            tags = _fix_tags(tags, files, idx, len(files), opts)
+        if opts.debug:
+            print '\tUpdated:'
+            _print_tags(tags)
+        if opts.verbose:
+            print '\tChanges:'
+            _print_changes(org_tabs, tags)
+        tags.save()
+        if opts.verbose:
+            print 'Saving %s done' % filename
+        if opts.action_rename:
+            _rename_file(filename, tags)
 
 
 if __name__ == '__main__':
