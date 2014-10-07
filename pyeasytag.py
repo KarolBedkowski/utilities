@@ -1,5 +1,5 @@
 #!/usr/bin/python
-""" Fix tags in files from Jamendo; rename files. """
+""" Fix tags in mp3/ogg files (i.e. from Jamendo); rename files. """
 
 import os
 import re
@@ -88,6 +88,7 @@ def _fix_tags(tags, filename, idx, len_files, opts):
 def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
     # fix title
     artist = tags.get('artist')
+    tags['performer'] = artist
     title = os.path.splitext(os.path.basename(filename))[0]
     if tags.get('title'):
         title = tags['title'][0]
@@ -96,8 +97,16 @@ def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
         if mtitle:
             title = mtitle.group(2)
             tags['artist'] = mtitle.group(1)
-    if title and artist and title.startswith(artist[0] + " - "):
-        title = title[len(artist[0]) + 3:]
+    track = tags.get('tracknumber')
+    if title and artist:
+        if title.startswith(artist[0]):
+            titlem = re.match(r'^(.+?) (\d+?) (.+)', title)
+            if titlem and track:
+                tags['artist'] = [titlem.group(1).strip()]
+                title = titlem.group(3).strip()
+        track = tags.get('tracknumber')
+        if track and track[0] and title.startswith(track[0]):
+            title = title[len(track[0]):].strip()
     if title:
         tags['title'] = [title]
     else:
