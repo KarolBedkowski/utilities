@@ -142,6 +142,10 @@ def _parse_opt():
                      help='enable debug messages')
     group.add_option('--verbose', '-v', action="store_true", default=False,
                      help='enable more messages')
+    group.add_option('--no-action', '-N', action="store_true", default=False,
+                     dest="no_action",
+                     help="do not write anything; just show what would "
+                          "have been done.")
     optp.add_option_group(group)
     return optp.parse_args()
 
@@ -151,7 +155,7 @@ def _accepted_file(filename):
         os.path.splitext(filename)[1].lower() in ('.mp3', '.ogg')
 
 
-def _rename_file(filename, tags):
+def _rename_file(filename, tags, opts):
     curr_filename = os.path.basename(filename)
     curr_dir = os.path.dirname(filename)
     ext = os.path.splitext(curr_filename)[1]
@@ -159,10 +163,11 @@ def _rename_file(filename, tags):
     dst_filename = dst_filename.lower()
     if dst_filename != curr_filename:
         print '\tRename %s -> %s' % (curr_filename, dst_filename)
-        os.rename(filename, os.path.join(curr_dir, dst_filename))
+        if not opts.no_action:
+            os.rename(filename, os.path.join(curr_dir, dst_filename))
 
 
-def _rename_dir(dirnames, _opts):
+def _rename_dir(dirnames, opts):
     dirnames = [dname
                 for dname in dirnames or []
                 if os.path.isdir(dname)]
@@ -195,7 +200,8 @@ def _rename_dir(dirnames, _opts):
             print '[E] No valid tags found in %s. Skipping...' % dname
         elif dst_name != dname:
             print '\tRenaming %s -> %s' % (dname, dst_name)
-            os.rename(dname, dst_name)
+            if not opts.no_action:
+                os.rename(dname, dst_name)
 
 
 def _find_files(opts, args):
@@ -233,11 +239,12 @@ def main(dirname='.'):
         if opts.verbose:
             print '\tChanges:'
             _print_changes(org_tabs, tags)
-        tags.save()
+        if not opts.no_action:
+            tags.save()
         if opts.verbose:
             print 'Saving %s done' % filename
         if opts.action_rename:
-            _rename_file(filename, tags)
+            _rename_file(filename, tags, opts)
 
 
 if __name__ == '__main__':
