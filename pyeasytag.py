@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf8 -*-
 """ Fix tags in mp3/ogg files (i.e. from Jamendo); rename files. """
 
 import os
@@ -33,13 +34,28 @@ def _print_changes(old, new):
             print '\t\t%s: %r -> %r' % (key, old_v, new_v)
 
 
+def get_tag_value(tags, key):
+    value = tags.get(key)
+    if value:
+        return value[0]
+    return None
+
+
 def filename_from_tags(tags):
     tracknumber = tags.get('tracknumber')
+    fname = None
     if tracknumber and tracknumber[0]:
         num = tracknumber[0].split('/')[0]
         fname = '%s. %s' % (num, tags['title'][0])
     else:
-        fname = '%s - %s' % (tags['performer'][0], tags['title'][0])
+        artist = get_tag_value(tags, 'performer') or \
+            get_tag_value(tags, 'artist')
+        fname = get_tag_value(tags, 'title')
+        if artist:
+            fname = artist + ' - ' + fname
+    if not fname:
+        return None
+    fname = fname.replace(u'Ł', 'L')
     return unicodedata.normalize('NFKD', fname).encode('ascii', 'ignore')
 
 
@@ -169,6 +185,9 @@ def _rename_file(filename, tags, opts):
     curr_dir = os.path.dirname(filename)
     ext = os.path.splitext(curr_filename)[1]
     dst_filename = filename_from_tags(tags) + ext
+    if not dst_filename:
+        print "[E] can't build filename from tags for:", curr_filename
+        return
     dst_filename = dst_filename.lower()
     if dst_filename != curr_filename:
         print '\tRename %s -> %s' % (curr_filename, dst_filename)
