@@ -155,9 +155,6 @@ def _parse_opt():
                      dest="action_fix_jamendo_tags")
     optp.add_option_group(group)
     group = optparse.OptionGroup(optp, "Options")
-    group.add_option('--find-files', '-f', action="store_true", default=False,
-                     help='find files in current directory',
-                     dest="find_files")
     group.add_option('--album', '-a', action="store_true", default=False,
                      help='treat all files as one album',
                      dest="opt_album")
@@ -233,10 +230,15 @@ def _rename_dir(dirnames, opts):
 
 
 def _find_files(opts, args):
-    if opts.find_files:
-        files = [fname for fname in os.listdir('.') if _accepted_file(fname)]
-    else:
-        files = [fname for fname in args if _accepted_file(fname)]
+    files = []
+    for fname in args:
+        fname = os.path.expanduser(fname)
+        if os.path.isdir(fname):
+            files.extend(fname
+                         for fname in os.listdir(fname)
+                         if _accepted_file(fname))
+        elif _accepted_file(fname):
+            files.append(fname)
     if not files:
         print 'Error: missing input files'
         exit(-1)
