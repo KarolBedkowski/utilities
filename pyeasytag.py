@@ -34,7 +34,7 @@ def _print_changes(old, new):
             print '\t\t%s: %r -> %r' % (key, old_v, new_v)
 
 
-def get_tag_value(tags, key):
+def _get_tag_value(tags, key):
     value = tags.get(key)
     if value:
         return value[0]
@@ -47,13 +47,13 @@ def filename_from_tags(tags):
     if tracknumber and tracknumber[0]:
         num = tracknumber[0].split('/')[0]
         fname = '%s. %s' % (num, tags['title'][0])
-        discnumber = get_tag_value(tags, 'discnumber')
+        discnumber = _get_tag_value(tags, 'discnumber')
         if discnumber:
             fname = str(discnumber) + fname
     else:
-        artist = get_tag_value(tags, 'performer') or \
-            get_tag_value(tags, 'artist')
-        fname = get_tag_value(tags, 'title')
+        artist = _get_tag_value(tags, 'performer') or \
+            _get_tag_value(tags, 'artist')
+        fname = _get_tag_value(tags, 'title')
         if artist:
             fname = artist + ' - ' + fname
     if not fname:
@@ -72,7 +72,7 @@ def _parse_tracknum(tracknum):
     return int(tracknum), None
 
 
-def _fix_tags(tags, filename, idx, len_files, opts):
+def _fix_tags(tags, filename, idx, num_files, opts):
     # fix performer
     if not tags.get('performer'):
         if tags.get('artist'):
@@ -84,16 +84,16 @@ def _fix_tags(tags, filename, idx, len_files, opts):
             artist = artist.strip(' [()]')
             tags['performer'] = [artist]
     if opts.opt_album:
-        c_track, c_alltracks = (idx + 1), len_files
+        c_track, c_alltracks = (idx + 1), num_files
         tracknumber = tags.get('tracknumber')
         if tracknumber and tracknumber[0]:
             c_track, c_alltracks = _parse_tracknum(tracknumber[0])
-            if c_alltracks and c_alltracks != len_files:
+            if c_alltracks and c_alltracks != num_files:
                 print ('[W] Wrong all track number in %s '
                        '(current: %s, all files: %s)' %
-                       (filename, idx, len_files))
+                       (filename, idx, num_files))
             if not c_alltracks:
-                c_alltracks = len_files
+                c_alltracks = num_files
         tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
         if opts.discnumber:
             if opts.discnumber == '-1':
@@ -111,7 +111,7 @@ def _fix_tags(tags, filename, idx, len_files, opts):
     return tags
 
 
-def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
+def _fix_jamendo_tags(tags, filename, idx, num_files, _opts):
     # fix title
     artist = tags.get('artist')
     tags['performer'] = artist
@@ -147,7 +147,7 @@ def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
     return tags
 
 
-def _fix_youtube_tags(tags, filename, _idx, len_files, _opts):
+def _fix_youtube_tags(tags, filename, _idx, _num_files, _opts):
     fmatch = re.match(r'(.+?) - (.+?)-(.+?)\....', filename)
     if fmatch:
         tags['artist'] = [fmatch.group(1)]
@@ -161,52 +161,6 @@ def _fix_youtube_tags(tags, filename, _idx, len_files, _opts):
 
     print "[E] can't match filename"
     return tags
-
-
-def _parse_opt():
-    """ Parse cli options. """
-    optp = optparse.OptionParser("pyEasyTag")
-    group = optparse.OptionGroup(optp, "Command")
-    group.add_option('--rename', '-R', action="store_true", default=False,
-                     help='rename files', dest="action_rename")
-    group.add_option('--rename-dir', '-D', action="store_true", default=False,
-                     help="rename given directory", dest="action_ren_dir")
-    group.add_option('--fix-tags', '-F', action="store_true",
-                     default=False,
-                     help='fix common problems in tags',
-                     dest="action_fix_tags")
-    group.add_option('--fix-jamendo-tags', '-J', action="store_true",
-                     default=False,
-                     help='fix tags in files from Jamendo',
-                     dest="action_fix_jamendo_tags")
-    group.add_option('--fix-youtube-tags', '-Y', action="store_true",
-                     default=False,
-                     help='fix tags in files from Youtube',
-                     dest="action_fix_youtube_tags")
-    group.add_option('--set-disc',
-                     dest="discnumber",
-                     help="set disc number; use -1 for remove",
-                     metavar="DISC")
-    optp.add_option_group(group)
-    group = optparse.OptionGroup(optp, "Options")
-    group.add_option('--album', '-a', action="store_true", default=False,
-                     help='treat all files as one album (default)',
-                     dest="opt_album")
-    group.add_option('--single', '-s', action="store_true", default=False,
-                     help="don't create album",
-                     dest="opt_single")
-    optp.add_option_group(group)
-    group = optparse.OptionGroup(optp, "Debug options")
-    group.add_option('--debug', '-d', action="store_true", default=False,
-                     help='enable debug messages')
-    group.add_option('--verbose', '-v', action="store_true", default=False,
-                     help='enable more messages')
-    group.add_option('--no-action', '-N', action="store_true", default=False,
-                     dest="no_action",
-                     help="do not write anything; just show what would "
-                          "have been done.")
-    optp.add_option_group(group)
-    return optp.parse_args()
 
 
 def _accepted_file(filename):
@@ -281,6 +235,52 @@ def _find_files(_opts, args):
         exit(-1)
 
     return files
+
+
+def _parse_opt():
+    """ Parse cli options. """
+    optp = optparse.OptionParser("pyEasyTag")
+    group = optparse.OptionGroup(optp, "Command")
+    group.add_option('--rename', '-R', action="store_true", default=False,
+                     help='rename files', dest="action_rename")
+    group.add_option('--rename-dir', '-D', action="store_true", default=False,
+                     help="rename given directory", dest="action_ren_dir")
+    group.add_option('--fix-tags', '-F', action="store_true",
+                     default=False,
+                     help='fix common problems in tags',
+                     dest="action_fix_tags")
+    group.add_option('--fix-jamendo-tags', '-J', action="store_true",
+                     default=False,
+                     help='fix tags in files from Jamendo',
+                     dest="action_fix_jamendo_tags")
+    group.add_option('--fix-youtube-tags', '-Y', action="store_true",
+                     default=False,
+                     help='fix tags in files from Youtube',
+                     dest="action_fix_youtube_tags")
+    group.add_option('--set-disc',
+                     dest="discnumber",
+                     help="set disc number; use -1 for remove",
+                     metavar="DISC")
+    optp.add_option_group(group)
+    group = optparse.OptionGroup(optp, "Options")
+    group.add_option('--album', '-a', action="store_true", default=False,
+                     help='treat all files as one album (default)',
+                     dest="opt_album")
+    group.add_option('--single', '-s', action="store_true", default=False,
+                     help="don't create album",
+                     dest="opt_single")
+    optp.add_option_group(group)
+    group = optparse.OptionGroup(optp, "Debug options")
+    group.add_option('--debug', '-d', action="store_true", default=False,
+                     help='enable debug messages')
+    group.add_option('--verbose', '-v', action="store_true", default=False,
+                     help='enable more messages')
+    group.add_option('--no-action', '-N', action="store_true", default=False,
+                     dest="no_action",
+                     help="do not write anything; just show what would "
+                          "have been done.")
+    optp.add_option_group(group)
+    return optp.parse_args()
 
 
 def main(dirname='.'):
