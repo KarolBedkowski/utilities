@@ -47,6 +47,9 @@ def filename_from_tags(tags):
     if tracknumber and tracknumber[0]:
         num = tracknumber[0].split('/')[0]
         fname = '%s. %s' % (num, tags['title'][0])
+        discnumber = get_tag_value(tags, 'discnumber')
+        if discnumber:
+            fname = str(discnumber) + fname
     else:
         artist = get_tag_value(tags, 'performer') or \
             get_tag_value(tags, 'artist')
@@ -56,7 +59,8 @@ def filename_from_tags(tags):
     if not fname:
         return None
     fname = fname.replace(u'Ł', 'L')
-    return unicodedata.normalize('NFKD', fname).encode('ascii', 'ignore')
+    return unicodedata.normalize('NFKD', fname).\
+        encode('ascii', 'ignore').strip()
 
 
 def _parse_tracknum(tracknum):
@@ -73,31 +77,37 @@ def _fix_tags(tags, filename, idx, len_files, opts):
     if not tags.get('performer'):
         if tags.get('artist'):
             artist = tags['artist'][0]
-            if 'feat.' in artist:
-                artist = artist.split('feat.')[0]
+            if ' feat.' in artist:
+                artist = artist.split(' feat.')[0]
+            if ' feat ' in artist:
+                artist = artist.split(' feat ')[0]
             artist = artist.strip(' [()]')
             tags['performer'] = [artist]
-    if len_files == 1:
-        # remove track number when only one file
+    if opts.opt_album:
+        c_track, c_alltracks = (idx + 1), len_files
+        tracknumber = tags.get('tracknumber')
+        if tracknumber and tracknumber[0]:
+            c_track, c_alltracks = _parse_tracknum(tracknumber[0])
+            if c_alltracks and c_alltracks != len_files:
+                print ('[W] Wrong all track number in %s '
+                       '(current: %s, all files: %s)' %
+                       (filename, idx, len_files))
+            if not c_alltracks:
+                c_alltracks = len_files
+        tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
+        if opts.discnumber:
+            if opts.discnumber == '-1':
+                if 'discnumber' in tags:
+                    del tags['discnumber']
+            else:
+                tags['discnumber'] = [opts.discnumber]
+    elif opts.opt_single:
         if 'tracknumber' in tags:
             del tags['tracknumber']
-    else:
-        if opts.opt_album:
-            c_track, c_alltracks = idx, len_files
-            tracknumber = tags.get('tracknumber')
-            if tracknumber and tracknumber[0]:
-                c_track, c_alltracks = _parse_tracknum(tracknumber[0])
-                if c_alltracks and c_alltracks != len_files:
-                    print ('[W] Wrong all track number in %s '
-                           '(current: %s, all files: %s)' %
-                           (filename, idx, len_files))
-                if not c_alltracks:
-                    c_alltracks = len_files
-            tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
-        else:
-            # TODO: single mode?
-            if 'tracknumber' in tags:
-                del tags['tracknumber']
+        if 'discnumber' in tags:
+            del tags['discnumber']
+        if 'album' in tags:
+            del tags['album']
     return tags
 
 
@@ -137,6 +147,22 @@ def _fix_jamendo_tags(tags, filename, idx, len_files, _opts):
     return tags
 
 
+def _fix_youtube_tags(tags, filename, _idx, len_files, _opts):
+    fmatch = re.match(r'(.+?) - (.+?)-(.+?)\....', filename)
+    if fmatch:
+        tags['artist'] = [fmatch.group(1)]
+        tags['title'] = [fmatch.group(2)]
+        return tags
+
+    fmatch = re.match(r'(.+?)-(.+?)\....', filename)
+    if fmatch:
+        tags['title'] = [fmatch.group(1)]
+        return tags
+
+    print "[E] can't match filename"
+    return tags
+
+
 def _parse_opt():
     """ Parse cli options. """
     optp = optparse.OptionParser("pyEasyTag")
@@ -153,11 +179,22 @@ def _parse_opt():
                      default=False,
                      help='fix tags in files from Jamendo',
                      dest="action_fix_jamendo_tags")
+    group.add_option('--fix-youtube-tags', '-Y', action="store_true",
+                     default=False,
+                     help='fix tags in files from Youtube',
+                     dest="action_fix_youtube_tags")
+    group.add_option('--set-disc',
+                     dest="discnumber",
+                     help="set disc number; use -1 for remove",
+                     metavar="DISC")
     optp.add_option_group(group)
     group = optparse.OptionGroup(optp, "Options")
     group.add_option('--album', '-a', action="store_true", default=False,
-                     help='treat all files as one album',
+                     help='treat all files as one album (default)',
                      dest="opt_album")
+    group.add_option('--single', '-s', action="store_true", default=False,
+                     help="don't create album",
+                     dest="opt_single")
     optp.add_option_group(group)
     group = optparse.OptionGroup(optp, "Debug options")
     group.add_option('--debug', '-d', action="store_true", default=False,
@@ -229,7 +266,7 @@ def _rename_dir(dirnames, opts):
                 os.rename(dname, dst_name)
 
 
-def _find_files(opts, args):
+def _find_files(_opts, args):
     files = []
     for fname in args:
         fname = os.path.expanduser(fname)
@@ -248,6 +285,8 @@ def _find_files(opts, args):
 
 def main(dirname='.'):
     opts, args = _parse_opt()
+    if not opts.opt_single:
+        opts.opt_album = True
     if opts.action_ren_dir:
         _rename_dir(args, opts)
         return
@@ -261,6 +300,8 @@ def main(dirname='.'):
             _print_tags(tags)
         if opts.action_fix_jamendo_tags:
             tags = _fix_jamendo_tags(tags, filename, idx, len(files), opts)
+        if opts.action_fix_youtube_tags:
+            tags = _fix_youtube_tags(tags, filename, idx, len(files), opts)
         if opts.action_fix_tags:
             tags = _fix_tags(tags, files, idx, len(files), opts)
         if opts.debug:
