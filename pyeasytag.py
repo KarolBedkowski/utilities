@@ -63,6 +63,18 @@ def filename_from_tags(tags):
         encode('ascii', 'ignore').strip()
 
 
+def filename_from_tags_single(tags):
+    artist = _get_tag_value(tags, 'performer') or _get_tag_value(tags, 'artist')
+    fname = _get_tag_value(tags, 'title')
+    if artist:
+        fname = artist + ' - ' + fname
+    if not fname:
+        return None
+    fname = fname.replace(u'Ł', 'L')
+    return unicodedata.normalize('NFKD', fname).\
+        encode('ascii', 'ignore').strip()
+
+
 def _parse_tracknum(tracknum):
     tracknum = tracknum.strip()
     if not tracknum:
@@ -172,11 +184,14 @@ def _rename_file(filename, tags, opts):
     curr_filename = os.path.basename(filename)
     curr_dir = os.path.dirname(filename)
     ext = os.path.splitext(curr_filename)[1]
-    dst_filename = filename_from_tags(tags) + ext
+    if opts.opt_single:
+        dst_filename = filename_from_tags_single(tags)
+    else:
+        dst_filename = filename_from_tags(tags)
     if not dst_filename:
         print "[E] can't build filename from tags for:", curr_filename
         return
-    dst_filename = dst_filename.lower()
+    dst_filename = dst_filename.lower() + ext
     if dst_filename != curr_filename:
         print '\tRename %s -> %s' % (curr_filename, dst_filename)
         if not opts.no_action:
@@ -287,6 +302,8 @@ def main(dirname='.'):
     opts, args = _parse_opt()
     if not opts.opt_single:
         opts.opt_album = True
+    opts.action_fix_tags |= opts.action_fix_jamendo_tags | \
+        opts.action_fix_youtube_tags
     if opts.action_ren_dir:
         _rename_dir(args, opts)
         return
