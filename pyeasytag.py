@@ -2,6 +2,13 @@
 # -*- coding: utf8 -*-
 """ Fix tags in mp3/ogg files (i.e. from Jamendo); rename files. """
 
+__author__ = "Karol Będkowski"
+__copyright__ = "Copyright (c) Karol Będkowski, 2014"
+__version__ = "2014-12-22"
+__licence__ = "GPLv2"
+
+VERSION = "0.4"
+
 import os
 import re
 import unicodedata
@@ -64,7 +71,8 @@ def filename_from_tags(tags):
 
 
 def filename_from_tags_single(tags):
-    artist = _get_tag_value(tags, 'performer') or _get_tag_value(tags, 'artist')
+    artist = _get_tag_value(tags, 'performer') or \
+        _get_tag_value(tags, 'artist')
     fname = _get_tag_value(tags, 'title')
     if artist:
         fname = artist + ' - ' + fname
@@ -98,12 +106,15 @@ def _fix_tags(tags, filename, idx, num_files, opts):
     if opts.opt_album:
         c_track, c_alltracks = (idx + 1), num_files
         tracknumber = tags.get('tracknumber')
-        if tracknumber and tracknumber[0]:
+        if tracknumber and tracknumber[0] and not opts.force_renumber:
             c_track, c_alltracks = _parse_tracknum(tracknumber[0])
+            if c_track == 0:
+                print ('[W] Possible wrong track number'
+                       ' - Track=0 for "%s"' % filename)
             if c_alltracks and c_alltracks != num_files:
                 print ('[W] Wrong all track number in %s '
                        '(current: %s, all files: %s)' %
-                       (filename, idx, num_files))
+                       (filename, c_track, num_files))
             if not c_alltracks:
                 c_alltracks = num_files
         tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
@@ -254,7 +265,8 @@ def _find_files(_opts, args):
 
 def _parse_opt():
     """ Parse cli options. """
-    optp = optparse.OptionParser("pyEasyTag")
+    optp = optparse.OptionParser(version="%prog " + VERSION,
+                                 description=__doc__)
     group = optparse.OptionGroup(optp, "Command")
     group.add_option('--rename', '-R', action="store_true", default=False,
                      help='rename files', dest="action_rename")
@@ -272,10 +284,6 @@ def _parse_opt():
                      default=False,
                      help='fix tags in files from Youtube',
                      dest="action_fix_youtube_tags")
-    group.add_option('--set-disc',
-                     dest="discnumber",
-                     help="set disc number; use -1 for remove",
-                     metavar="DISC")
     optp.add_option_group(group)
     group = optparse.OptionGroup(optp, "Options")
     group.add_option('--album', '-a', action="store_true", default=False,
@@ -284,6 +292,14 @@ def _parse_opt():
     group.add_option('--single', '-s', action="store_true", default=False,
                      help="don't create album",
                      dest="opt_single")
+    group.add_option('--set-disc',
+                     dest="discnumber",
+                     help="set disc number; use -1 for remove",
+                     metavar="DISC")
+    group.add_option('--force-renumber', action="store_true",
+                     default=False,
+                     dest="force_renumber",
+                     help="force set track numbers")
     optp.add_option_group(group)
     group = optparse.OptionGroup(optp, "Debug options")
     group.add_option('--debug', '-d', action="store_true", default=False,
@@ -320,7 +336,7 @@ def main(dirname='.'):
         if opts.action_fix_youtube_tags:
             tags = _fix_youtube_tags(tags, filename, idx, len(files), opts)
         if opts.action_fix_tags:
-            tags = _fix_tags(tags, files, idx, len(files), opts)
+            tags = _fix_tags(tags, filename, idx, len(files), opts)
         if opts.debug:
             print '\tUpdated:'
             _print_tags(tags)
