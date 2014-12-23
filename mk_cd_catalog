@@ -1,0 +1,83 @@
+#!/bin/bash
+# Create simple cd catalog in few gziped text files.
+# args: no arguments for find cdrom or <name> <path>
+
+#shopt -s -o xtrace
+set -o nounset
+set -o errexit
+
+THIS=$(pwd)
+
+function echotime () {
+echo "$(date +%Y-%m-%d\ %H:%M:%S): $*"
+}
+
+if [ -z "$1" ]; then
+	CD=$(mount -t iso9660 | awk '{ print $3; }')
+	NAME=$(echo "$CD" | cut -d '/' -f 4)
+	echo "CD=$CD"
+	echo "NAME=$NAME"
+else
+	NAME=$1
+	if [ -z "$2" ]; then
+		CD="/cdrom"
+	else
+		CD=$2
+	fi
+fi
+
+echotime "================== Start =================="
+echo "path: $CD"
+echo "name: $NAME"
+
+echotime 'find files'
+#find $CD | gzip > $NAME.files.gz
+
+#echo 'find files ll'
+#find $CD -type f -exec ls -l {} ";" | gzip > $NAME.filesll.gz
+tree -psugfi "$CD" | sed "s#  ${CD}#  #" | gzip > "$NAME.files.gz"
+
+echotime 'tree'
+( 
+	tree -d "$CD"
+	echo '--------------------'
+	echo -n
+	df -h "$CD"
+	(cd "$CD" && du -hs .)
+) | gzip > "$NAME.tree.gz"
+
+
+
+echotime 'readme'
+if [ -e "$CD/*README*" ]; then
+	cat "$CD/*README*" | gzip > "$NAME.readme.gz"
+fi
+
+echotime 'file_id.diz'
+if [ -e "$CD/file_id.diz" ]; then
+	gzip -c "$CD/file_id.diz" > "$NAME.file_id_diz.gz"
+fi
+
+echotime 'md5/sha'
+if [ -e "$CD/md5sum.txt" ]; then
+	cat "$CD/md5sum.txt" | gzip > "$NAME.md5.gz"
+fi
+if [ -e "$CD/sha*sum.txt" ]; then
+	cat "$CD/sha*sum.txt" | gzip > "$NAME.sha.gz"
+fi
+(
+	cd "$CD"
+	find -L . -type f \( -name "md5sum.txt" -o -name "sha*sum.txt" \) -print0 | tar -czf "$THIS/$NAME.sums.tar.gz" --null -T -
+)
+
+echotime 'arch'
+(
+	find -L "$CD" \( -name "*.tgz" -o -name "*.tbz2" -o -name '*.tar.*' \) -not -name "*.log" -exec echo -e "\n\nARCHIVE {}" ';' -exec tar tf "{}" ';'
+	find -L "$CD" -name "*.zip" -exec echo "\n\nARCHIVE {}" ';' -exec unzip -l "{}" ';'
+	find -L "$CD" -name "*.rar" -exec echo "\n\nARCHIVE {}" ';' -exec rar l "{}" ';'
+	find -L "$CD" \( -name "*.7z" -o -name '*.7z.001' \) -exec echo "\n\nARCHIVE {}" ';' -exec 7z l "{}" ';'
+) | gzip >  "$NAME.arch.gz"
+
+
+echotime '================= done ==================='
+
