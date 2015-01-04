@@ -12,7 +12,7 @@ function echotime () {
 echo "$(date +%Y-%m-%d\ %H:%M:%S): $*"
 }
 
-if [ -z "$1" ]; then
+if [ $# = 0 ]; then
 	CD=$(mount -t iso9660 | awk '{ print $3; }')
 	NAME=$(echo "$CD" | cut -d '/' -f 4)
 	echo "CD=$CD"
