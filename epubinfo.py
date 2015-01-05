@@ -34,11 +34,29 @@ def check_file(filename):
     return True
 
 
+CONTAINER_XML = 'META-INF/container.xml'
+ROOTFILES_TAG = "{urn:oasis:names:tc:opendocument:xmlns:container}rootfiles"
+ROOTFILE_TAG = "{urn:oasis:names:tc:opendocument:xmlns:container}rootfile"
+
+
+def get_content_opf_path(containter_xml):
+    containter = et.fromstring(containter_xml)
+    rootfiles = containter.find(ROOTFILES_TAG)
+    if len(rootfiles) == 0:
+        raise KeyError("rootfiles not found in container.xml")
+    rootfile = rootfiles.find(ROOTFILE_TAG)
+    if rootfile is None:
+        raise KeyError("rootfile not found in container.xml")
+    return rootfile.attrib["full-path"]
+
+
 def get_opf(epub):
     """ Load content.opf file from epub. """
     try:
         with zipfile.ZipFile(epub, "r") as zipf:
-            with zipf.open("content.opf", "r") as contentf:
+            with zipf.open(CONTAINER_XML) as contf:
+                content_filename = get_content_opf_path(contf.read())
+            with zipf.open(content_filename, "r") as contentf:
                 return contentf.read()
     except zipfile.BadZipfile, err:
         print 'ERROR: Wrong file - %s ' % err
@@ -82,12 +100,15 @@ def process_purl_tag(elem):
 def process_opf(opf):
     """ Get tags from content opf file. """
     package = et.fromstring(opf)
-    if not package:
+    if len(package) == 0:
         return
     manifest = package.find(MANIFEST_TAG)
-    for tag in manifest or []:
+    if len(manifest) == 0:
+        return
+    for tag in manifest:
         if tag.tag.startswith(OPF_NS):
-            yield process_opf_tag(tag)
+            if 'name' in tag.attrib:
+                yield process_opf_tag(tag)
         elif tag.tag.startswith(PURL_NS):
             yield process_purl_tag(tag)
 
