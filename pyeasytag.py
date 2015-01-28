@@ -65,7 +65,7 @@ def filename_from_tags(tags):
             fname = artist + ' - ' + fname
     if not fname:
         return None
-    fname = fname.replace(u'Ł', 'L')
+    fname = fname.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-')
     return unicodedata.normalize('NFKD', fname).\
         encode('ascii', 'ignore').strip()
 
@@ -78,7 +78,7 @@ def filename_from_tags_single(tags):
         fname = artist + ' - ' + fname
     if not fname:
         return None
-    fname = fname.replace(u'Ł', 'L')
+    fname = fname.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-')
     return unicodedata.normalize('NFKD', fname).\
         encode('ascii', 'ignore').strip()
 
@@ -233,7 +233,8 @@ def _rename_dir(dirnames, opts):
                     dst_name = " ".join((date, album[0]))
                 else:
                     dst_name = album[0]
-                dst_name = dst_name.lower()
+                dst_name = dst_name.lower().replace('/', '-').\
+                    replace('\\', '-')
                 break
         else:
             print '[E] No media files in %s. Skipping...' % dname
