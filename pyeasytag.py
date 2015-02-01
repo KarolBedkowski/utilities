@@ -33,7 +33,7 @@ def _print_changes(old, new):
     keys = sorted(keys.iterkeys())
 
     def _value2str(val):
-        return str(val[0]) if val else ''
+        return val[0].encode(errors='replace') if val else ''
 
     for key in keys:
         old_v, new_v = _value2str(old.get(key)), _value2str(new.get(key))
@@ -58,7 +58,7 @@ def filename_from_tags(tags):
         if discnumber:
             fname = str(discnumber) + fname
     else:
-        artist = _get_tag_value(tags, 'performer') or \
+        artist = _get_tag_value(tags, _album_artist_tag(tags)) or \
             _get_tag_value(tags, 'artist')
         fname = _get_tag_value(tags, 'title')
         if artist:
@@ -71,7 +71,7 @@ def filename_from_tags(tags):
 
 
 def filename_from_tags_single(tags):
-    artist = _get_tag_value(tags, 'performer') or \
+    artist = _get_tag_value(tags, _album_artist_tag(tags)) or \
         _get_tag_value(tags, 'artist')
     fname = _get_tag_value(tags, 'title')
     if artist:
@@ -92,9 +92,16 @@ def _parse_tracknum(tracknum):
     return int(tracknum), None
 
 
-def _fix_tags(tags, filename, idx, num_files, opts):
-    # fix performer
-    if not tags.get('performer'):
+def _album_artist_tag(tags):
+    tag = 'albumartist'
+    if hasattr(tags, 'ID3') and 'albumartist' not in tags.ID3.valid_keys:
+        tag = 'performer'
+    return tag
+
+
+def __fix_tags_albumartist(tags):
+    tag = _album_artist_tag(tags)
+    if not tags.get(tag):
         if tags.get('artist'):
             artist = tags['artist'][0]
             if ' feat.' in artist:
@@ -102,28 +109,36 @@ def _fix_tags(tags, filename, idx, num_files, opts):
             if ' feat ' in artist:
                 artist = artist.split(' feat ')[0]
             artist = artist.strip(' [()]')
-            tags['performer'] = [artist]
+            tags[tag] = [artist]
+
+
+def __fix_tags_album(tags, filename, idx, num_files, opts):
+    c_track, c_alltracks = (idx + 1), num_files
+    tracknumber = tags.get('tracknumber')
+    if tracknumber and tracknumber[0] and not opts.force_renumber:
+        c_track, c_alltracks = _parse_tracknum(tracknumber[0])
+        if c_track == 0:
+            print ('[W] Possible wrong track number'
+                   ' - Track=0 for "%s"' % filename)
+        if c_alltracks and c_alltracks != num_files:
+            print ('[W] Wrong all track number in %s '
+                   '(current: %s, all files: %s)' %
+                   (filename, c_track, num_files))
+        if not c_alltracks:
+            c_alltracks = num_files
+    tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
+    if opts.discnumber:
+        if opts.discnumber == '-1':
+            if 'discnumber' in tags:
+                del tags['discnumber']
+        else:
+            tags['discnumber'] = [opts.discnumber]
+
+
+def _fix_tags(tags, filename, idx, num_files, opts):
+    __fix_tags_albumartist(tags)
     if opts.opt_album:
-        c_track, c_alltracks = (idx + 1), num_files
-        tracknumber = tags.get('tracknumber')
-        if tracknumber and tracknumber[0] and not opts.force_renumber:
-            c_track, c_alltracks = _parse_tracknum(tracknumber[0])
-            if c_track == 0:
-                print ('[W] Possible wrong track number'
-                       ' - Track=0 for "%s"' % filename)
-            if c_alltracks and c_alltracks != num_files:
-                print ('[W] Wrong all track number in %s '
-                       '(current: %s, all files: %s)' %
-                       (filename, c_track, num_files))
-            if not c_alltracks:
-                c_alltracks = num_files
-        tags['tracknumber'] = ["%02d/%02d" % (c_track, c_alltracks)]
-        if opts.discnumber:
-            if opts.discnumber == '-1':
-                if 'discnumber' in tags:
-                    del tags['discnumber']
-            else:
-                tags['discnumber'] = [opts.discnumber]
+        __fix_tags_album(tags, filename, idx, num_files, opts)
     elif opts.opt_single:
         if 'tracknumber' in tags:
             del tags['tracknumber']
@@ -134,7 +149,16 @@ def _fix_tags(tags, filename, idx, num_files, opts):
     return tags
 
 
-def _fix_jamendo_tags(tags, filename, idx, num_files, _opts):
+def __fix_jamendo_tags_year(tags):
+    if not tags.get('date'):
+        copyr = tags.get('copyright')
+        if copyr and copyr[0]:
+            year_re = _RE_GET_DATE_FROM_CR.match(copyr[0])
+            if year_re and year_re.group(1):
+                tags['date'] = [str(year_re.group(1))]
+
+
+def _fix_jamendo_tags(tags, filename, _idx, num_files, _opts):
     # fix title
     artist = tags.get('artist')
     tags['performer'] = artist
@@ -161,12 +185,7 @@ def _fix_jamendo_tags(tags, filename, idx, num_files, _opts):
     else:
         print '[E]: missing title'
     # fix year
-    if not tags.get('date'):
-        copyr = tags.get('copyright')
-        if copyr and copyr[0]:
-            year_re = _RE_GET_DATE_FROM_CR.match(copyr[0])
-            if year_re and year_re.group(1):
-                tags['date'] = [str(year_re.group(1))]
+    __fix_jamendo_tags_year(tags)
     return tags
 
 
@@ -344,10 +363,12 @@ def main(dirname='.'):
         if opts.verbose:
             print '\tChanges:'
             _print_changes(org_tabs, tags)
-        if not opts.no_action:
+        if not opts.no_action and org_tabs != tags:
             tags.save()
-        if opts.verbose:
-            print 'Saving %s done' % filename
+            if opts.verbose:
+                print 'Saving %s done' % filename
+        elif opts.verbose:
+            print 'No changes in %s' % filename
         if opts.action_rename:
             _rename_file(filename, tags, opts)
 
