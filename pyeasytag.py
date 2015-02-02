@@ -118,6 +118,29 @@ def __fix_tags_albumartist(tags):
             tags[tag] = [artist]
 
 
+def __fix_tracknumber_in_title(tags):
+    tracknumber = _get_tag_value(tags, 'tracknumber')
+    if not tracknumber:
+        return tags
+    title = _get_tag_value(tags, 'title')
+    if not title:
+        return tags
+    if '/' in tracknumber:
+        tnum, _ = tracknumber.split('/', 1)
+    else:
+        tnum = tracknumber
+    if title.startswith(tnum):
+        tags['title'] = title[len(tnum):].strip(' .')
+        return tags
+    discnumber = _get_tag_value(tags, 'discnumber')
+    if not discnumber:
+        return tags
+    prefix = discnumber + tnum
+    if title.startswith(prefix):
+        tags['title'] = title[len(prefix):].strip(' .')
+    return tags
+
+
 def __fix_tags_album(tags, filename, idx, num_files, opts):
     c_track, c_alltracks = (idx + 1), num_files
     tracknumber = tags.get('tracknumber')
@@ -143,6 +166,7 @@ def __fix_tags_album(tags, filename, idx, num_files, opts):
 
 def _fix_tags(tags, filename, idx, num_files, opts):
     __fix_tags_albumartist(tags)
+    __fix_tracknumber_in_title(tags)
     if opts.opt_album:
         __fix_tags_album(tags, filename, idx, num_files, opts)
     elif opts.opt_single:
