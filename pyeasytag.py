@@ -48,6 +48,12 @@ def _get_tag_value(tags, key):
     return None
 
 
+def _fix_filename_invalid_chars(name):
+    return name.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-').\
+        replace('?', '').replace(':', '-').replace('*', ' ').\
+        replace('  ', ' ')
+
+
 def filename_from_tags(tags):
     tracknumber = tags.get('tracknumber')
     fname = None
@@ -65,7 +71,7 @@ def filename_from_tags(tags):
             fname = artist + ' - ' + fname
     if not fname:
         return None
-    fname = fname.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-')
+    fname = _fix_filename_invalid_chars(fname)
     return unicodedata.normalize('NFKD', fname).\
         encode('ascii', 'ignore').strip()
 
@@ -78,7 +84,7 @@ def filename_from_tags_single(tags):
         fname = artist + ' - ' + fname
     if not fname:
         return None
-    fname = fname.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-')
+    fname = _fix_filename_invalid_chars(fname)
     return unicodedata.normalize('NFKD', fname).\
         encode('ascii', 'ignore').strip()
 
