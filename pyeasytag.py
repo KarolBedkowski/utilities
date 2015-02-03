@@ -282,8 +282,7 @@ def _rename_dir(dirnames, opts):
                     dst_name = " ".join((date, album[0]))
                 else:
                     dst_name = album[0]
-                dst_name = dst_name.lower().replace('/', '-').\
-                    replace('\\', '-')
+                dst_name = _fix_filename_invalid_chars(dst_name).lower()
                 break
         else:
             print '[E] No media files in %s. Skipping...' % dname
