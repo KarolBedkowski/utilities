@@ -51,7 +51,7 @@ def _get_tag_value(tags, key):
 def _fix_filename_invalid_chars(name):
     return name.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-').\
         replace('?', '').replace(':', '-').replace('*', ' ').\
-        replace('  ', ' ')
+        replace('  ', ' ').replace('"', '\'')
 
 
 def filename_from_tags(tags):
