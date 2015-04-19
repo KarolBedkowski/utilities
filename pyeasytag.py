@@ -3,11 +3,11 @@
 """ Fix tags in mp3/ogg files (i.e. from Jamendo); rename files. """
 
 __author__ = "Karol Będkowski"
-__copyright__ = "Copyright (c) Karol Będkowski, 2014"
-__version__ = "2014-12-22"
+__copyright__ = "Copyright (c) Karol Będkowski, 2014-2015"
+__version__ = "2015-04-19"
 __licence__ = "GPLv2"
 
-VERSION = "0.4"
+VERSION = "0.5"
 
 import os
 import re
@@ -170,12 +170,10 @@ def _fix_tags(tags, filename, idx, num_files, opts):
     if opts.opt_album:
         __fix_tags_album(tags, filename, idx, num_files, opts)
     elif opts.opt_single:
-        if 'tracknumber' in tags:
-            del tags['tracknumber']
-        if 'discnumber' in tags:
-            del tags['discnumber']
-        if 'album' in tags:
-            del tags['album']
+        for tag in ('tracknumber', 'discnumber', 'album', 'albumartist',
+                    'performer'):
+            if tag in tags:
+                del tags[tag]
     return tags
 
 
@@ -188,10 +186,11 @@ def __fix_jamendo_tags_year(tags):
                 tags['date'] = [str(year_re.group(1))]
 
 
-def _fix_jamendo_tags(tags, filename, _idx, num_files, _opts):
+def _fix_jamendo_tags(tags, filename, _idx, _num_files, opts):
     # fix title
     artist = tags.get('artist')
-    tags['performer'] = artist
+    if not opts.opt_single:
+        tags['performer'] = artist
     title = os.path.splitext(os.path.basename(filename))[0]
     if tags.get('title'):
         title = tags['title'][0]
