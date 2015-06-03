@@ -44,7 +44,7 @@ def _print_changes(old, new):
 def _get_tag_value(tags, key):
     value = tags.get(key)
     if value:
-        return value[0]
+        return ' - '.join(value)
     return None
 
 
@@ -59,7 +59,7 @@ def filename_from_tags(tags):
     fname = None
     if tracknumber and tracknumber[0]:
         num = tracknumber[0].split('/')[0]
-        fname = '%s. %s' % (num, tags['title'][0])
+        fname = '%s. %s' % (num, _get_tag_value(tags, 'title'))
         discnumber = _get_tag_value(tags, 'discnumber')
         if discnumber:
             fname = str(discnumber) + fname
