@@ -59,7 +59,7 @@ def filename_from_tags(tags):
     fname = None
     if tracknumber and tracknumber[0]:
         num = tracknumber[0].split('/')[0]
-        fname = '%s. %s' % (num, _get_tag_value(tags, 'title'))
+        fname = '%s %s' % (num, _get_tag_value(tags, 'title'))
         discnumber = _get_tag_value(tags, 'discnumber')
         if discnumber:
             fname = str(discnumber) + fname
@@ -109,7 +109,7 @@ def __fix_tags_albumartist(tags):
     tag = _album_artist_tag(tags)
     if not tags.get(tag):
         if tags.get('artist'):
-            artist = tags['artist'][0]
+            artist = ' '.join(tags['artist'])
             if ' feat.' in artist:
                 artist = artist.split(' feat.')[0]
             if ' feat ' in artist:
@@ -130,7 +130,7 @@ def __fix_tracknumber_in_title(tags):
     else:
         tnum = tracknumber
     if title.startswith(tnum):
-        tags['title'] = title[len(tnum):].strip(' .')
+        tags['title'] = title[len(tnum):].strip(' .-')
         return tags
     discnumber = _get_tag_value(tags, 'discnumber')
     if not discnumber:
@@ -166,7 +166,6 @@ def __fix_tags_album(tags, filename, idx, num_files, opts):
 
 def _fix_tags(tags, filename, idx, num_files, opts):
     __fix_tags_albumartist(tags)
-    __fix_tracknumber_in_title(tags)
     if opts.opt_album:
         __fix_tags_album(tags, filename, idx, num_files, opts)
     elif opts.opt_single:
@@ -174,6 +173,7 @@ def _fix_tags(tags, filename, idx, num_files, opts):
                     'performer'):
             if tag in tags:
                 del tags[tag]
+    __fix_tracknumber_in_title(tags)
     return tags
 
 
@@ -193,7 +193,7 @@ def _fix_jamendo_tags(tags, filename, _idx, _num_files, opts):
         tags['performer'] = artist
     title = os.path.splitext(os.path.basename(filename))[0]
     if tags.get('title'):
-        title = tags['title'][0]
+        title = ' '.join(tags['title'])
     if title:
         mtitle = _RE_REM_TITLE.match(title)
         if mtitle:
@@ -286,10 +286,11 @@ def _rename_dir(dirnames, opts):
         else:
             print '[E] No media files in %s. Skipping...' % dname
             continue
+        dname = unicode(dname, 'UTF-8', errors='skip')
         if dst_name is None:
             print '[E] No valid tags found in %s. Skipping...' % dname
         elif dst_name != dname:
-            print '\tRenaming %s -> %s' % (dname, dst_name)
+            print u'\tRenaming %s -> %s' % (dname, dst_name)
             if not opts.no_action:
                 os.rename(dname, dst_name)
 
