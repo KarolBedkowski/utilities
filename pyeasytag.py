@@ -49,9 +49,11 @@ def _get_tag_value(tags, key):
 
 
 def _fix_filename_invalid_chars(name):
-    return name.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-').\
+    name = name.replace(u'Ł', 'L').replace('/', '-').replace('\\', '-').\
         replace('?', '').replace(':', '-').replace('*', ' ').\
-        replace('  ', ' ').replace('"', '\'')
+        replace('  ', ' ').replace('"', '\'').rstrip('.')
+    return unicodedata.normalize('NFKD', name).\
+        encode('ascii', 'ignore').strip()
 
 
 def filename_from_tags(tags):
@@ -71,9 +73,7 @@ def filename_from_tags(tags):
             fname = artist + ' - ' + fname
     if not fname:
         return None
-    fname = _fix_filename_invalid_chars(fname)
-    return unicodedata.normalize('NFKD', fname).\
-        encode('ascii', 'ignore').strip()
+    return _fix_filename_invalid_chars(fname)
 
 
 def filename_from_tags_single(tags):
@@ -84,9 +84,7 @@ def filename_from_tags_single(tags):
         fname = artist + ' - ' + fname
     if not fname:
         return None
-    fname = _fix_filename_invalid_chars(fname)
-    return unicodedata.normalize('NFKD', fname).\
-        encode('ascii', 'ignore').strip()
+    return _fix_filename_invalid_chars(fname)
 
 
 def _parse_tracknum(tracknum):
@@ -131,6 +129,12 @@ def __fix_tracknumber_in_title(tags):
         tnum = tracknumber
     if title.startswith(tnum):
         tags['title'] = title[len(tnum):].strip(' .-')
+        return tags
+    if title.startswith("0"+tnum):
+        tags['title'] = title[len(tnum)+1:].strip(' .-')
+        return tags
+    if title.startswith("("+tnum+")"):
+        tags['title'] = title[len(tnum)+2:].strip(' .-')
         return tags
     discnumber = _get_tag_value(tags, 'discnumber')
     if not discnumber:
