@@ -1,2 +1,3 @@
 #!/bin/sh
-find . -type d -print -exec bash -c '(cd "{}" && mp3gain -a -k *.mp3)' \;
+#find . -type d -print -exec bash -c '(cd "{}" && mp3gain -a -k *.mp3)' \;
+find . -type d -print -exec bash -c '(cd "{}" && replaygain *.mp3)' \;
