@@ -1,0 +1,33 @@
+#!/bin/bash
+# Convert various files to epub
+
+set -o nounset
+set -o errexit
+
+if [[ $# == 0 ]]; then
+	echo "missing args"
+	exit -1
+fi
+
+INP="$1"
+
+if [[ $# -gt 1 ]]; then
+	CURDIR=$(pwd)
+	OUT="$(basename $CURDIR).epub"
+else
+	OUT="${INP%\.*}.epub"
+fi
+
+OPT=""
+EXT=${INP##*\.}
+
+echo "IN: $*"
+echo "OUT: $OUT"
+shift
+OPT="$OPT "
+ebook-convert "$INP" "$OUT" -v \
+    --no-default-epub-cover --language pl --epub-flatten --pretty-print \
+    --remove-paragraph-spacing --smarten-punctuation --enable-heuristics \
+    --extra-css "$HOME/books/my.css" \
+    --dont-split-on-page-breaks \
+    --disable-format-scene-breaks "$@"
