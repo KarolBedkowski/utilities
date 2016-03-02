@@ -1,0 +1,50 @@
+#!/bin/bash -
+#===============================================================================
+#
+#          FILE: pdf2djvu_mono
+#
+#         USAGE: ./pdf2djvu_mono
+#
+#   DESCRIPTION: convert pdf to djvu using convert & converting to monochrome
+#
+#       OPTIONS: ---
+#  REQUIREMENTS: ---
+#          BUGS: ---
+#         NOTES: ---
+#        AUTHOR:
+#  ORGANIZATION:
+#       CREATED: 29.02.2016
+#      REVISION:  ---
+#===============================================================================
+
+set -o nounset                              # Treat unset variables as an error
+
+name=$(basename "$1" .pdf)
+temp="${name}.temp"
+
+mkdir -p "${temp}"
+
+gs -dBATCH -dNOPAUSE -sDEVICE=pnggray -r300 -dUseCropBox \
+ 	 -sOutputFile="${temp}/p%05d.png" "$1"
+
+
+#for i in *.png
+#do
+#	echo $i
+#	j=`basename $i .png`
+#	convert $i -white-threshold 40000 -auto-level -monochrome $j.pbm
+#	cjb2 -clean $j.pbm $j.djvu
+#done
+
+(
+	cd "${temp}"
+	find . -name '*.png' | \
+			sort | \
+			parallel -j 4 '
+		echo {}; j=$(basename {} .png);
+		convert {} -white-threshold 40000 -auto-level -monochrome $j.pbm;
+		cjb2 -clean $j.pbm $j.djvu'
+
+	djvm -c "../${name}.djvu" $(ls *.djvu | sort)
+)
+
