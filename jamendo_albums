@@ -1,0 +1,4 @@
+#!/bin/sh
+exec 2>&1
+curl -s "https://api.jamendo.com/v3.0/artists/albums?client_id=af0e8af0&format=json&id=$1&order=album_releasedate_desc" | jq '.results[0].albums[] | {name:.name, releasedate: .releasedate} | join (", ")'
+
