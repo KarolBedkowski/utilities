@@ -3,7 +3,7 @@
 """ Fix tags in mp3/ogg files (i.e. from Jamendo); rename files. """
 
 __author__ = "Karol Będkowski"
-__copyright__ = "Copyright (c) Karol Będkowski, 2014-2015"
+__copyright__ = "Copyright (c) Karol Będkowski, 2014-2016"
 __version__ = "2015-04-19"
 __licence__ = "GPLv2"
 
@@ -64,6 +64,8 @@ def filename_from_tags(tags):
         fname = '%s %s' % (num, _get_tag_value(tags, 'title'))
         discnumber = _get_tag_value(tags, 'discnumber')
         if discnumber:
+            if '/' in discnumber:
+                discnumber = discnumber.split('/', 1)[0]
             fname = str(discnumber) + fname
     else:
         artist = _get_tag_value(tags, _album_artist_tag(tags)) or \
@@ -130,10 +132,13 @@ def __fix_tracknumber_in_title(tags):
     if title.startswith(tnum):
         tags['title'] = title[len(tnum):].strip(' .-')
         return tags
-    if title.startswith("0"+tnum):
+        tags['title'] = title[len(tnum)+2:].strip(' .-')
+    if title.startswith(u"0"+tnum):
         tags['title'] = title[len(tnum)+1:].strip(' .-')
         return tags
-    if title.startswith("("+tnum+")"):
+    if title.startswith(u"(0" + tnum + u")"):
+        tags['title'] = title[len(tnum)+3:].strip(' .-')
+    if title.startswith("(" + tnum + ")"):
         tags['title'] = title[len(tnum)+2:].strip(' .-')
         return tags
     discnumber = _get_tag_value(tags, 'discnumber')
