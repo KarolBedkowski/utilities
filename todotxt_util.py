@@ -29,12 +29,21 @@ import locale
 import time
 
 _MATCH_CONTEXT_RE = re.compile(r'(@\S+)', re.L)
-_MATCH_PROJECT_RE = re.compile(r'(\+\S+)', re.L)
+_MATCH_PROJECT_RE = re.compile(r'\s(\+\S+)', re.L)
 _MATCH_PRIORITY_RE = re.compile(r'\(([A-Za-z])\)', re.L)
 _MATCH_DUE_RE = re.compile(r'due:(\d\d\d\d-\d\d-\d\d)')
 _MATCH_TDUE_RE = re.compile(r't:(\d\d\d\d-\d\d-\d\d)')
 
-_NOW = time.time()
+
+def _today():
+    ttd = time.localtime(time.time())
+    return time.mktime((ttd.tm_year, ttd.tm_mon, ttd.tm_mday, 0, 0, 0, 0, 0,
+                        ttd.tm_isdst))
+
+_NOW = _today()
+
+_DEFAULT_SORT_MODE = 'sdtpPc'
+_DEFAULT_FPATH = "~/Todo/todo.txt"
 
 
 def _load_task(line):
@@ -44,7 +53,8 @@ def _load_task(line):
             'over_t': 0,
             'project': "\xff",
             'context': "\xff",
-            'priority': "\xff"}
+            'priority': "\xff",
+            'status': 'a'}
     context = _MATCH_CONTEXT_RE.search(line)
     if context:
         task['context'] = context.group(1)
@@ -59,7 +69,7 @@ def _load_task(line):
         try:
             date = time.mktime(time.strptime(due.group(1), '%Y-%m-%d'))
             task['due'] = date
-            task['over_due'] = date - _NOW
+            task['over_due'] = date - _NOW - 86400
         except ValueError:
             pass
     tdue = _MATCH_TDUE_RE.search(line)
@@ -70,11 +80,16 @@ def _load_task(line):
             task['over_t'] = date - _NOW
         except ValueError:
             pass
+    if line.startswith('x ') or line.startswith('X '):
+        task['status'] = "x"
+    #print(task)
     return task
 
 
 def load_tasks(filename):
     """load content of todo.txt."""
+
+    filename = os.path.expanduser(filename)
 
     if not os.path.isfile(filename):
         print("file {} not found".format(filename), file=sys.stderr)
@@ -111,6 +126,7 @@ _SORT_KEYS_SK = {
     't': 'over_t',
     'P': 'priority',
     'c': 'context',
+    's': 'status',
 }
 
 
@@ -120,7 +136,7 @@ def sort_tasks(args):
         print("loading {} file".format(args.file), file=sys.stderr)
     tasks = load_tasks(args.file)
 
-    mode = args.mode or 'dtpPc'
+    mode = args.mode or _DEFAULT_SORT_MODE
     s_keys = [_SORT_KEYS_SK[char] for char in mode if char in _SORT_KEYS_SK]
     if not s_keys:
         print("invalid sort mode: '{}'".format(args.mode), file=sys.stderr)
@@ -144,7 +160,8 @@ def sort_tasks(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Todo.txt utility')
-    parser.add_argument("-f", "--file", default="todo.txt",
+    parser.add_argument("-f", "--file",
+                        default=os.path.expanduser(_DEFAULT_FPATH),
                         help="todo.txt filename")
     parser.add_argument("--stdout", action="store_true",
                         default=False,
@@ -154,8 +171,9 @@ def parse_args():
                                        dest='command',)
     parser_sort = subparsers.add_parser('sort', help='sorting functions')
     parser_sort.add_argument(
-        '-m', '--mode', default="dtpPc",
-        help='sorting mode, default: by due, t, project, Priority, context')
+        '-m', '--mode', default=_DEFAULT_SORT_MODE,
+        help='sorting mode, default: by status, due, t, project, '
+        'Priority, context')
     return parser.parse_args()
 
 
