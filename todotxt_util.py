@@ -112,12 +112,55 @@ def print_tasks(tasks):
 
 def write_tasks(tasks, filename):
     """write task into file."""
-    # crate backup
-    shutil.copyfile(filename, filename + ".bak")
+    # create backup
+    if os.path.isfile(filename):
+        shutil.copyfile(filename, filename + ".bak")
     with open(filename, "w") as ofile:
         for task in tasks:
             ofile.write(task['content'])
             ofile.write("\r\n")
+
+
+def write_archive(tasks, basefilename):
+    """Append task to archive file."""
+
+    arch_fpath = os.path.join(
+        os.path.dirname(basefilename), "done.txt")
+
+    # create backup
+    if os.path.isfile(arch_fpath):
+        shutil.copyfile(arch_fpath, arch_fpath + ".bak")
+
+    with open(arch_fpath, "a") as ofile:
+        for task in tasks:
+            ofile.write(task['content'])
+            ofile.write("\r\n")
+
+
+def archive_tasks(args):
+    """Move done tasks to archive"""
+    if args.verbose:
+        print("loading {} file".format(args.file), file=sys.stderr)
+    tasks = list(load_tasks(args.file))
+
+    done = (task for task in tasks if task['status'] == 'x')
+    active = (task for task in tasks if task['status'] != 'x')
+
+    if args.stdout:
+        print("----- ACTIVE -----")
+        print_tasks(active)
+        print("----- DONE -----")
+        print_tasks(done)
+    else:
+        if args.verbose:
+            print("writing active task to {} file".format(args.file),
+                  file=sys.stderr)
+        write_tasks(active, args.file)
+        if args.verbose:
+            print("writing done task", file=sys.stderr)
+        write_archive(done, args.file)
+    if args.verbose:
+        print("done", file=sys.stderr)
 
 
 _SORT_KEYS_SK = {
@@ -174,6 +217,10 @@ def parse_args():
         '-m', '--mode', default=_DEFAULT_SORT_MODE,
         help='sorting mode, default: by status, due, t, project, '
         'Priority, context')
+    parser_sort.add_argument(
+        '--archive', action="store_true",
+        help='archive done tasks')
+    subparsers.add_parser('archive', help='archive done tasks')
     return parser.parse_args()
 
 
@@ -183,10 +230,18 @@ def main():
 
     args = parse_args()
 
+    if not args.command:
+        print("missing command", file=sys.stderr)
+        exit(-1)
+
     if args.command == 'sort':
         sort_tasks(args)
-    else:
-        print("missing command", file=sys.stderr)
+        if args.archive:
+            archive_tasks(args)
+
+    if args.command == 'archive':
+        archive_tasks(args)
+
 
 if __name__ == "__main__":
     main()
