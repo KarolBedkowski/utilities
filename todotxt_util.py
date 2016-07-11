@@ -21,7 +21,7 @@
 
 TODO:
     * add some tests
-    * reorganize load, action, save
+    * reorganize re
 
 """
 
@@ -106,10 +106,13 @@ def _load_task(line):
     return task
 
 
-def load_tasks(filename):
+def load_tasks(args):
     """load content of todo.txt."""
 
-    filename = os.path.expanduser(filename)
+    filename = os.path.expanduser(args.file)
+
+    if args.verbose:
+        print("loading " + filename, file=sys.stderr)
 
     if not os.path.isfile(filename):
         print("file {} not found".format(filename), file=sys.stderr)
@@ -124,14 +127,28 @@ def load_tasks(filename):
             yield task
 
 
-def print_tasks(tasks):
+def print_tasks(tasks, args, header):
     """Print tasks on std"""
+    if args.verbose:
+        header = '----------- ' + header + ' -----------'
+        print(header)
     for task in tasks:
         print(task['content'])
+    if args.verbose:
+        print('-' * len(header))
 
 
-def write_tasks(tasks, filename):
-    """write task into file."""
+def write_tasks(tasks, args):
+    """write task into file or stdout."""
+    if args.stdout:
+        print_tasks(tasks, args, "TASKS")
+        return
+
+    filename = args.file
+
+    if args.verbose:
+        print("writing {} file".format(filename), file=sys.stderr)
+
     # create backup
     if os.path.isfile(filename):
         shutil.copyfile(filename, filename + ".bak")
@@ -141,9 +158,16 @@ def write_tasks(tasks, filename):
             ofile.write("\r\n")
 
 
-def write_archive(tasks, basefilename):
-    """Append task to archive file."""
+def write_archive(tasks, args):
+    """Append task to archive file or print to stdout."""
+    if args.stdout:
+        print_tasks(tasks, args, "ARCHIVE")
+        return
 
+    if args.verbose:
+        print("writing done task", file=sys.stderr)
+
+    basefilename = args.file
     arch_fpath = os.path.join(
         os.path.dirname(basefilename), "done.txt")
 
@@ -157,35 +181,12 @@ def write_archive(tasks, basefilename):
             ofile.write("\r\n")
 
 
-def archive_tasks(args, recurse=False):
+def archive_tasks(tasks, _args):
     """Move done tasks to archive"""
-    if args.verbose:
-        print("loading {} file".format(args.file), file=sys.stderr)
-    tasks = load_tasks(args.file)
-
-    if recurse:
-        tasks = recurse_tasks(tasks)
-
     tasks = list(tasks)
-
     done = (task for task in tasks if task['status'] == 'x')
     active = (task for task in tasks if task['status'] != 'x')
-
-    if args.stdout:
-        print("----- ACTIVE -----")
-        print_tasks(active)
-        print("----- DONE -----")
-        print_tasks(done)
-    else:
-        if args.verbose:
-            print("writing active task to {} file".format(args.file),
-                  file=sys.stderr)
-        write_tasks(active, args.file)
-        if args.verbose:
-            print("writing done task", file=sys.stderr)
-        write_archive(done, args.file)
-    if args.verbose:
-        print("done", file=sys.stderr)
+    return active, done
 
 
 def _move_date(indate, offset):
@@ -204,8 +205,8 @@ def _replace_date(content, prefix, old_date, new_date):
     return content.replace(replstr, deststr)
 
 
-def recurse_tasks(tasks):
-    """create new task from finished tasks with 'r' tag """
+def recurse_tasks(tasks, args):
+    """create new task from finished tasks with 'rec' tag """
     for task in tasks:
         yield task
         rec = task['recurse']
@@ -239,7 +240,7 @@ def recurse_tasks(tasks):
         ntask = task.copy()
         content = ntask['content'][2:]
         if task['status_date']:
-            content  = content[11:]
+            content = content[11:]
         ntask['status'] = 'a'
         ntask['tdue'] = _move_date(task['tdue'], offset)
         content = _replace_date(content, ' t:', task['tdue'], ntask['tdue'])
@@ -260,15 +261,8 @@ _SORT_KEYS_SK = {
 }
 
 
-def sort_tasks(args, recurse=False):
+def sort_tasks(tasks, args):
     """Sort tasks by mode."""
-    if args.verbose:
-        print("loading {} file".format(args.file), file=sys.stderr)
-    tasks = load_tasks(args.file)
-
-    if recurse:
-        tasks = recurse_tasks(tasks)
-
     mode = args.mode or _DEFAULT_SORT_MODE
     s_keys = [_SORT_KEYS_SK[char] for char in mode if char in _SORT_KEYS_SK]
     if not s_keys:
@@ -279,16 +273,7 @@ def sort_tasks(args, recurse=False):
         return [task.get(key, '') for key in s_keys]
 
     tasks = sorted(tasks, key=key_fn)
-    if not tasks:
-        return
-    if args.stdout:
-        print_tasks(tasks)
-    else:
-        if args.verbose:
-            print("writing {} file".format(args.file), file=sys.stderr)
-        write_tasks(tasks, args.file)
-    if args.verbose:
-        print("done", file=sys.stderr)
+    return tasks
 
 
 def parse_args():
@@ -300,8 +285,7 @@ def parse_args():
                         default=False,
                         help="print result on stdout")
     parser.add_argument("-v", "--verbose", action="store_true")
-    subparsers = parser.add_subparsers(help='Commands',
-                                       dest='command',)
+    subparsers = parser.add_subparsers(help='Commands', dest='command')
 
     parser_sort = subparsers.add_parser('sort', help='sorting functions')
     parser_sort.add_argument(
@@ -321,7 +305,7 @@ def parse_args():
         help='create new task according to recurse tags')
 
     parser_clean = subparsers.add_parser('clean',
-                                        help='sort, archive and recurse tasks')
+                                         help='sort, archive and recurse tasks')
     parser_clean.add_argument(
         '-m', '--mode', default=_DEFAULT_SORT_MODE,
         help='sorting mode, default: by status, due, t, project, '
@@ -340,15 +324,31 @@ def main():
         print("missing command", file=sys.stderr)
         exit(-1)
 
+    tasks = load_tasks(args)
+    archive = None
+
     if args.command == 'sort':
-        sort_tasks(args, args.recurse)
+        if args.recurse:
+            tasks = recurse_tasks(tasks, args)
+        tasks = sort_tasks(tasks, args)
         if args.archive:
-            archive_tasks(args, recurse=False)
+            tasks, archive = archive_tasks(tasks, args)
     elif args.command == 'archive':
-        archive_tasks(args, args.recurse)
+        if args.recurse:
+            tasks = recurse_tasks(tasks, args)
+        tasks, archive = archive_tasks(tasks, args)
     elif args.command == 'clean':
-        sort_tasks(args, recurse=True)
-        archive_tasks(args, recurse=False)
+        tasks = recurse_tasks(tasks, args)
+        tasks = sort_tasks(tasks, args)
+        tasks, archive = archive_tasks(tasks, args)
+
+    write_tasks(tasks, args)
+    if archive is not None:
+        write_archive(archive, args)
+
+    if args.verbose:
+        print("done", file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()
