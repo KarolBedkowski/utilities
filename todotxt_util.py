@@ -18,6 +18,11 @@
  with this program; if not, write to the Free Software Foundation, Inc.,
  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+
+TODO:
+    * add some tests
+    * reorganize load, action, save
+
 """
 
 import shutil
@@ -152,13 +157,13 @@ def write_archive(tasks, basefilename):
             ofile.write("\r\n")
 
 
-def archive_tasks(args):
+def archive_tasks(args, recurse=False):
     """Move done tasks to archive"""
     if args.verbose:
         print("loading {} file".format(args.file), file=sys.stderr)
     tasks = load_tasks(args.file)
 
-    if args.recurse:
+    if recurse:
         tasks = recurse_tasks(tasks)
 
     tasks = list(tasks)
@@ -255,13 +260,13 @@ _SORT_KEYS_SK = {
 }
 
 
-def sort_tasks(args):
+def sort_tasks(args, recurse=False):
     """Sort tasks by mode."""
     if args.verbose:
         print("loading {} file".format(args.file), file=sys.stderr)
     tasks = load_tasks(args.file)
 
-    if args.recurse:
+    if recurse:
         tasks = recurse_tasks(tasks)
 
     mode = args.mode or _DEFAULT_SORT_MODE
@@ -297,6 +302,7 @@ def parse_args():
     parser.add_argument("-v", "--verbose", action="store_true")
     subparsers = parser.add_subparsers(help='Commands',
                                        dest='command',)
+
     parser_sort = subparsers.add_parser('sort', help='sorting functions')
     parser_sort.add_argument(
         '-m', '--mode', default=_DEFAULT_SORT_MODE,
@@ -308,10 +314,19 @@ def parse_args():
     parser_sort.add_argument(
         '--recurse', action="store_true",
         help='create new task according to recurse tags')
+
     parser_arch = subparsers.add_parser('archive', help='archive done tasks')
     parser_arch.add_argument(
         '--recurse', action="store_true",
         help='create new task according to recurse tags')
+
+    parser_clean = subparsers.add_parser('clean',
+                                        help='sort, archive and recurse tasks')
+    parser_clean.add_argument(
+        '-m', '--mode', default=_DEFAULT_SORT_MODE,
+        help='sorting mode, default: by status, due, t, project, '
+        'Priority, context')
+
     return parser.parse_args()
 
 
@@ -326,14 +341,14 @@ def main():
         exit(-1)
 
     if args.command == 'sort':
-        sort_tasks(args)
+        sort_tasks(args, args.recurse)
         if args.archive:
-            args.recurse = False
-            archive_tasks(args)
-
-    if args.command == 'archive':
-        archive_tasks(args)
-
+            archive_tasks(args, recurse=False)
+    elif args.command == 'archive':
+        archive_tasks(args, args.recurse)
+    elif args.command == 'clean':
+        sort_tasks(args, recurse=True)
+        archive_tasks(args, recurse=False)
 
 if __name__ == "__main__":
     main()
