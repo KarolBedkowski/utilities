@@ -20,8 +20,8 @@
 
 
 TODO:
-    * add some tests
     * reorganize re
+    * status_date nie jest parsowane - zmienić?
 
 """
 
@@ -41,8 +41,8 @@ _MATCH_PROJECT_RE = re.compile(r'\s(\+\S+)', re.L)
 _MATCH_PRIORITY_RE = re.compile(r'\(([A-Za-z])\)', re.L)
 _MATCH_DUE_RE = re.compile(r' due:(\d\d\d\d-\d\d-\d\d)')
 _MATCH_TDUE_RE = re.compile(r' t:(\d\d\d\d-\d\d-\d\d)')
-_MATCH_R_RE = re.compile(r' rec:(\+?\d+)([dmyw]?)', re.I)
-_MATCH_STATUS_RE = re.compile(r'^(x?)( (\d\d\d\d-\d\d-\d\d))? ', re.I)
+_MATCH_R_RE = re.compile(r' rec:(\+?\d+)([dmywq]?)', re.I)
+_MATCH_STATUS_RE = re.compile(r'^(x)( (\d\d\d\d-\d\d-\d\d))? ', re.I)
 
 
 def _today():
@@ -50,13 +50,13 @@ def _today():
     return time.mktime((ttd.tm_year, ttd.tm_mon, ttd.tm_mday, 0, 0, 0, 0, 0,
                         ttd.tm_isdst))
 
-_NOW = _today()
+NOW = _today()
 
-_DEFAULT_SORT_MODE = 'sdtpPc'
+_DEFAULT_SORT_MODE = 'sdtpPcT'
 _DEFAULT_FPATH = "~/Todo/todo.txt"
 
 
-def _load_task(line):
+def load_task(line):
     """Parse one line and return tasks"""
     task = {'content': line,
             'over_due': 0,
@@ -68,7 +68,8 @@ def _load_task(line):
             'status_date': None,
             'recurse': None,
             'due': None,
-            'tdue': None}
+            'tdue': None,
+            'text': None}
     context = _MATCH_CONTEXT_RE.search(line)
     if context:
         task['context'] = context.group(1)
@@ -83,7 +84,7 @@ def _load_task(line):
         try:
             date = time.mktime(time.strptime(due.group(1), '%Y-%m-%d'))
             task['due'] = date
-            task['over_due'] = date - _NOW - 86400
+            task['over_due'] = date - NOW - 86400
         except ValueError:
             pass
     tdue = _MATCH_TDUE_RE.search(line)
@@ -91,7 +92,7 @@ def _load_task(line):
         try:
             date = time.mktime(time.strptime(tdue.group(1), "%Y-%m-%d"))
             task['tdue'] = date
-            task['over_t'] = date - _NOW
+            task['over_t'] = date - NOW
         except ValueError:
             pass
     status = _MATCH_STATUS_RE.search(line)
@@ -99,6 +100,11 @@ def _load_task(line):
         task['status'] = status.group(1).lower()
         if len(status.groups()) == 3:
             task['status_date'] = status.group(3)
+            task['text'] = line[11:]
+        else:
+            task['text'] = line[3:]
+    else:
+        task['text'] = line
     rec = _MATCH_R_RE.search(line)
     if rec:
         task['recurse'] = (rec.group(1), rec.group(2))
@@ -106,7 +112,17 @@ def _load_task(line):
     return task
 
 
-def load_tasks(args):
+def load_tasks(lines):
+    """load tasks from lines."""
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        task = load_task(line)
+        yield task
+
+
+def load_tasks_from_file(args):
     """load content of todo.txt."""
 
     filename = os.path.expanduser(args.file)
@@ -119,12 +135,7 @@ def load_tasks(args):
         exit(-2)
 
     with open(filename) as finp:
-        for line in finp:
-            line = line.strip()
-            if not line:
-                continue
-            task = _load_task(line)
-            yield task
+        return load_tasks(finp)
 
 
 def print_tasks(tasks, args, header):
@@ -228,7 +239,7 @@ def recurse_tasks(tasks, args):
         elif rec[1] == 'q':
             offset = relativedelta(months=oval*3)
         elif rec[1] == 'd':
-            offset = relativedelta(days=oval*3)
+            offset = relativedelta(days=oval)
         else:
             print("error: unknown rec step: {}", rec, file=sys.stderr)
             continue
@@ -258,6 +269,7 @@ _SORT_KEYS_SK = {
     'P': 'priority',
     'c': 'context',
     's': 'status',
+    'T': 'text',
 }
 
 
@@ -324,7 +336,7 @@ def main():
         print("missing command", file=sys.stderr)
         exit(-1)
 
-    tasks = load_tasks(args)
+    tasks = load_tasks_from_file(args)
     archive = None
 
     if args.command == 'sort':
