@@ -135,7 +135,7 @@ def load_tasks_from_file(args):
         exit(-2)
 
     with open(filename) as finp:
-        return load_tasks(finp)
+        yield from load_tasks(finp)
 
 
 def print_tasks(tasks, args, header):
