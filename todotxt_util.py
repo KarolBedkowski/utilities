@@ -253,9 +253,11 @@ def recurse_tasks(tasks, args):
         if task['status_date']:
             content = content[11:]
         ntask['status'] = 'a'
-        ntask['tdue'] = _move_date(task['tdue'], offset)
+        tdue = ntask['tdue'] = _move_date(task['tdue'], offset)
+        ntask['over_t'] = (tdue - NOW) if tdue else None
         content = _replace_date(content, ' t:', task['tdue'], ntask['tdue'])
-        ntask['due'] = _move_date(task['due'], offset)
+        due = ntask['due'] = _move_date(task['due'], offset)
+        ntask['over_due'] = (due - NOW - 86400) if due else None
         content = _replace_date(content, ' due:', task['due'], ntask['due'])
         ntask['content'] = content
         #print("REC: {}".format(ntask))
@@ -351,8 +353,8 @@ def main():
         tasks, archive = archive_tasks(tasks, args)
     elif args.command == 'clean':
         tasks = recurse_tasks(tasks, args)
-        tasks = sort_tasks(tasks, args)
         tasks, archive = archive_tasks(tasks, args)
+        tasks = sort_tasks(tasks, args)
 
     write_tasks(tasks, args)
     if archive is not None:
