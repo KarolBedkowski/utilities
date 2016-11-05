@@ -78,7 +78,7 @@ case $RES in
 			exit 0
 		fi
 
-		tmuxp load "$RES"
+		tmuxp load "${RES%%.yaml}"
 		exit 0
 		;;
 	*)
