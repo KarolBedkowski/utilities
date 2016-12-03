@@ -6,36 +6,43 @@
 set -o nounset
 set -o errexit
 
+SCRIPT=$(dirname $(readlink -f "$0"))
 THIS=$(pwd)
 
 function echotime () {
-echo "$(date +%Y-%m-%d\ %H:%M:%S): $*"
+	echo "$(date +%Y-%m-%d\ %H:%M:%S): $*" > /dev/stderr
+}
+
+function findCd() {
+#	mount -t iso9660,udf \
+#		| awk '{ print $3; }'
+	awk '/ (udf|iso9660) /{print $2}' /etc/mtab
 }
 
 if [ $# = 0 ]; then
-	CD=$(mount -t iso9660 | awk '{ print $3; }')
-	NAME=$(echo "$CD" | cut -d '/' -f 4)
-	echo "CD=$CD"
-	echo "NAME=$NAME"
+	CD=$(findCd)
+	NAME=$(basename "$CD")
 else
 	NAME=$1
-	if [ -z "$2" ]; then
-		CD="/cdrom"
+	if [ $# = 1 ]; then
+		CD=$(findCd)
 	else
 		CD=$2
 	fi
 fi
 
+if [[ $CD == "" ]]; then
+	echo "NO CD FOUND!"
+	exit -1
+fi
+
 echotime "================== Start =================="
-echo "path: $CD"
-echo "name: $NAME"
+echotime "path: $CD"
+echotime "name: $NAME"
 
 echotime 'find files'
-#find $CD | gzip > $NAME.files.gz
-
-#echo 'find files ll'
-#find $CD -type f -exec ls -l {} ";" | gzip > $NAME.filesll.gz
-tree -psugfi "$CD" | sed "s#  ${CD}#  #" | gzip > "$NAME.files.gz"
+tree -psugfi "$CD" | sed "s#  ${CD}#  #" \
+	| gzip > "$THIS/$NAME.files.gz"
 
 echotime 'tree'
 ( 
@@ -44,39 +51,50 @@ echotime 'tree'
 	echo -n
 	df -h "$CD"
 	(cd "$CD" && du -hs .)
-) | gzip > "$NAME.tree.gz"
-
+) | gzip > "$THIS/$NAME.tree.gz"
 
 
 echotime 'readme'
 if [ -e "$CD/*README*" ]; then
-	cat "$CD/*README*" | gzip > "$NAME.readme.gz"
+	cat "$CD/*README*" | gzip > "$THIS/$NAME.readme.gz"
 fi
 
 echotime 'file_id.diz'
 if [ -e "$CD/file_id.diz" ]; then
-	gzip -c "$CD/file_id.diz" > "$NAME.file_id_diz.gz"
+	gzip -c "$CD/file_id.diz" > "$THIS/$NAME.file_id_diz.gz"
 fi
 
-echotime 'md5/sha'
-if [ -e "$CD/md5sum.txt" ]; then
-	cat "$CD/md5sum.txt" | gzip > "$NAME.md5.gz"
-fi
-if [ -e "$CD/sha*sum.txt" ]; then
-	cat "$CD/sha*sum.txt" | gzip > "$NAME.sha.gz"
-fi
+echotime '*sum.txt'
 (
 	cd "$CD"
-	find -L . -type f \( -name "md5sum.txt" -o -name "sha*sum.txt" \) -print0 | tar -czf "$THIS/$NAME.sums.tar.gz" --null -T -
+	find -L . -type f \( -name "md5sum.txt" -o -name "sha*sum.txt" \) -print0 \
+		| tar -czf "$THIS/$NAME.sums.tar.gz" --null -T -
 )
 
 echotime 'arch'
 (
-	find -L "$CD" \( -name "*.tgz" -o -name "*.tbz2" -o -name '*.tar.*' \) -not -name "*.log" -exec echo -e "\n\nARCHIVE {}" ';' -exec tar tf "{}" ';'
-	find -L "$CD" -name "*.zip" -exec echo "\n\nARCHIVE {}" ';' -exec unzip -l "{}" ';'
-	find -L "$CD" -name "*.rar" -exec echo "\n\nARCHIVE {}" ';' -exec rar l "{}" ';'
-	find -L "$CD" \( -name "*.7z" -o -name '*.7z.001' \) -exec echo "\n\nARCHIVE {}" ';' -exec 7z l "{}" ';'
-) | gzip >  "$NAME.arch.gz"
+	echotime '    tgz'
+	find -L "$CD" \( -name "*.tgz" -o -name "*.tbz2" -o -name '*.tar.*' \) \
+		-not -name "*.log" \
+		-exec echo -e "\\n\\nARCHIVE {}" ';' \
+		-exec tar tf "{}" ';'
+	echotime '    zip'
+	find -L "$CD" -name "*.zip" \
+		-exec echo "\\n\\nARCHIVE {}" ';' \
+		-exec bash -c '/usr/bin/unzip -l "{}" 2>&1 ;true' ';'
+	echotime '    rar'
+	find -L "$CD" -name "*.rar" \
+		-exec echo "\\n\\nARCHIVE {}" ';' \
+		-exec rar l "{}" ';'
+	echotime '    7z'
+	find -L "$CD" \( -name "*.7z" -o -name '*.7z.001' \) \
+		-exec echo "\\n\\nARCHIVE {}" ';' \
+		-exec 7z l "{}" ';'
+	echotime '    xz'
+	find -L "$CD" -name "*.xz" \
+		-exec echo "\\n\\nARCHIVE {}" ';' \
+		-exec xz -l "{}" ';'
+) | gzip >  "$THIS/$NAME.arch.gz"
 
 
 echotime '================= done ==================='
