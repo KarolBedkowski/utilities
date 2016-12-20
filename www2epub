@@ -1,0 +1,49 @@
+#!/bin/bash -x
+# Download webpage & convert to epub
+
+set -o nounset
+set -o errexit
+
+if [[ $# == 0 ]]; then
+	echo "missing args"
+	exit -1
+fi
+
+URL="$1"
+# find filename
+HOSTPATH=${URL#*//}  # strip http[s]://
+URLPATH=${HOSTPATH#*/}  # strip hostname
+FNAME=${URLPATH##*/}
+
+if [[ $FNAME == "" ]]; then
+	URLPATH="${URLPATH}index.html"
+elif [[ ! $FNAME  =~ \.html ]]; then
+	URLPATH="${URLPATH}.html"
+fi
+
+CURRDIR=$(pwd)
+TEMPDIR=$(mktemp -d)
+
+trap "rm -rf -f -- '$TEMPDIR'" EXIT
+
+TEMPDIR="/tmp/tmp.eGSYzmxRt9/"
+TEMP="$TEMPDIR/${URLPATH}"
+
+(
+	cd "$TEMPDIR"
+	wget -k -p -E -H -K -l 1 --reject '*.js' \
+		--reject '*.eot*' --reject '*.ttf' --reject '*.woff*' \
+		-np -nH "$1"
+)
+
+TITLE=$(pup title text{} <"$TEMP")
+OUT="$CURRDIR/$(basename "$TITLE").epub"
+
+echo "IN: $TEMP"
+echo "OUT: $OUT"
+echo "URLPATH: $URLPATH"
+
+(
+	cd $(dirname "$TEMP")
+	pandoc -t epub3 --smart --webtex --epub-chapter-level=1 -o "$OUT" "$TEMP"
+)
