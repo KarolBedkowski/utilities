@@ -6,6 +6,16 @@
 set -o nounset
 set -o errexit
 
+if [[ $1 == "-h" ]]; then
+	cat <<EOF
+mk_cd_catalog
+- 1 parametr nazwa
+- 2 ścieżka
+brakujące parametry - automagiczne znalezienie
+EOF
+	exit 0
+fi
+
 SCRIPT=$(dirname $(readlink -f "$0"))
 THIS=$(pwd)
 
@@ -45,7 +55,7 @@ tree -psugfi "$CD" | sed "s#  ${CD}#  #" \
 	| gzip > "$THIS/$NAME.files.gz"
 
 echotime 'tree'
-( 
+(
 	tree -d "$CD"
 	echo '--------------------'
 	echo -n
