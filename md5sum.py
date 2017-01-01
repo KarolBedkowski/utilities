@@ -10,7 +10,7 @@ from __future__ import with_statement
 from __future__ import print_function
 
 __author__ = 'Karol Będkowski'
-__copyright__ = 'Copyright (c) Karol Będkowski, 2008-2014'
+__copyright__ = 'Copyright (c) Karol Będkowski, 2008-2017'
 __revision__ = '2014-12-23'
 __licence__ = "GPLv2"
 __version__ = "0.2"
@@ -169,6 +169,8 @@ def show_errors(files_cnt, good_cnt, bad_filenames):
           COLOR_OK, '\tgood:', good_cnt,
           COLOR_WARNING, '\tbad:', len(bad_filenames),
           COLOR_END)
+    if bad_filenames:
+        print("\n\n", COLOR_FAIL, "ERRORS!!!!!!!!!!!!", COLOR_END)
 
 
 def main():
