@@ -6,7 +6,7 @@
 set -o nounset
 set -o errexit
 
-if [[ $1 == "-h" ]]; then
+if [[ ${1:-} == "-h" ]]; then
 	cat <<EOF
 mk_cd_catalog
 - 1 parametr nazwa
@@ -108,4 +108,3 @@ echotime 'arch'
 
 
 echotime '================= done ==================='
-
