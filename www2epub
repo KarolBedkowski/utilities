@@ -26,7 +26,7 @@ TEMPDIR=$(mktemp -d)
 
 trap "rm -rf -f -- '$TEMPDIR'" EXIT
 
-TEMPDIR="/tmp/tmp.eGSYzmxRt9/"
+#TEMPDIR="/tmp/tmp.eGSYzmxRt9/"
 TEMP="$TEMPDIR/${URLPATH}"
 
 (
@@ -34,7 +34,7 @@ TEMP="$TEMPDIR/${URLPATH}"
 	wget -k -p -E -H -K -l 1 --reject '*.js' \
 		--reject '*.eot*' --reject '*.ttf' --reject '*.woff*' \
 		-np -nH "$1"
-)
+) || true
 
 TITLE=$(pup title text{} <"$TEMP")
 OUT="$CURRDIR/$(basename "$TITLE").epub"
