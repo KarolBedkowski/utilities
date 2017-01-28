@@ -108,7 +108,6 @@ def load_task(line):
     rec = _MATCH_R_RE.search(line)
     if rec:
         task['recurse'] = (rec.group(1), rec.group(2))
-    #print(task)
     return task
 
 
@@ -118,6 +117,7 @@ def load_tasks(lines):
         line = line.strip()
         if not line:
             continue
+        line = line.replace("  ", " ")
         task = load_task(line)
         yield task
 
@@ -237,7 +237,7 @@ def recurse_tasks(tasks, args):
         elif rec[1] == 'y':
             offset = relativedelta(years=oval)
         elif rec[1] == 'q':
-            offset = relativedelta(months=oval*3)
+            offset = relativedelta(months=oval * 3)
         elif rec[1] == 'd':
             offset = relativedelta(days=oval)
         else:
@@ -260,7 +260,6 @@ def recurse_tasks(tasks, args):
         ntask['over_due'] = (due - NOW - 86400) if due else None
         content = _replace_date(content, ' due:', task['due'], ntask['due'])
         ntask['content'] = content
-        #print("REC: {}".format(ntask))
         yield ntask
 
 
