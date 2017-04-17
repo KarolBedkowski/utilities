@@ -155,8 +155,8 @@ def show(groups):
         group = groups[group_name]
         print '%-10s' % group_name.capitalize()
         for _group, lev2, value, attrs in group:
-            print "\t%-10s\t%s" % (lev2 or '',
-                                   value.encode('utf-8', errors='ignore')),
+            value = value.encode('utf-8', errors='ignore') if value else ''
+            print "\t%-10s\t%s" % (lev2 or '', value),
             if attrs:
                 print '\t',
                 print ';'.join(key + '=' + val.encode('utf-8', errors='ignore')
