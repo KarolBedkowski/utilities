@@ -52,7 +52,7 @@ def _today():
 
 NOW = _today()
 
-_DEFAULT_SORT_MODE = 'sdtpPcT'
+_DEFAULT_SORT_MODE = 'sdtPpcT'
 _DEFAULT_FPATH = "~/Todo/todo.txt"
 
 
