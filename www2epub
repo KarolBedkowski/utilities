@@ -36,7 +36,7 @@ TEMP="$TEMPDIR/${URLPATH}"
 		-np -nH "$1"
 ) || true
 
-TITLE=$(pup title text{} <"$TEMP")
+TITLE=$(pup title text{} <"$TEMP" | tr -dc '[[:print:]]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 OUT="$CURRDIR/$(basename "$TITLE").epub"
 
 echo "IN: $TEMP"
