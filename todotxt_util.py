@@ -36,9 +36,9 @@ import datetime
 
 from dateutil.relativedelta import relativedelta
 
-_MATCH_CONTEXT_RE = re.compile(r'(@\S+)', re.L)
-_MATCH_PROJECT_RE = re.compile(r'\s(\+\S+)', re.L)
-_MATCH_PRIORITY_RE = re.compile(r'\(([A-Za-z])\)', re.L)
+_MATCH_CONTEXT_RE = re.compile(r'(@\S+)')
+_MATCH_PROJECT_RE = re.compile(r'\s(\+\S+)')
+_MATCH_PRIORITY_RE = re.compile(r'\(([A-Za-z])\)')
 _MATCH_DUE_RE = re.compile(r' due:(\d\d\d\d-\d\d-\d\d)')
 _MATCH_TDUE_RE = re.compile(r' t:(\d\d\d\d-\d\d-\d\d)')
 _MATCH_R_RE = re.compile(r' rec:(\+?\d+)([dmywq]?)', re.I)
@@ -49,6 +49,7 @@ def _today():
     ttd = time.localtime(time.time())
     return time.mktime((ttd.tm_year, ttd.tm_mon, ttd.tm_mday, 0, 0, 0, 0, 0,
                         ttd.tm_isdst))
+
 
 NOW = _today()
 
@@ -317,8 +318,8 @@ def parse_args():
         '--recurse', action="store_true",
         help='create new task according to recurse tags')
 
-    parser_clean = subparsers.add_parser('clean',
-                                         help='sort, archive and recurse tasks')
+    parser_clean = subparsers.add_parser(
+        'clean', help='sort, archive and recurse tasks')
     parser_clean.add_argument(
         '-m', '--mode', default=_DEFAULT_SORT_MODE,
         help='sorting mode, default: by status, due, t, project, '
