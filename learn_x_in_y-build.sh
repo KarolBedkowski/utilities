@@ -76,7 +76,7 @@ function main() {
 		$(ls temp/*.markdown | grep -v -e 'README' -e 'CONTRIBUTING' -e 'TITLE' | sort)
 
 	log 'leanify'
-	leanify learn_x_in_y.epub
+#	leanify learn_x_in_y.epub
 
 	log 'done'
 }
