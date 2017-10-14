@@ -30,7 +30,8 @@ function main() {
 		-exec mogrify -resize 600x800\> -define png:compression-level=9 -quality 60  {} ';' \
 		-exec leanify -i 5 {} ';'
 	NEWFILE="$BASEDIR/${EPUBNAME%.epub}_new.epub"
-	zip -0Xq "$NEWFILE" mimetype META-INF
+	zip -0Xq "$NEWFILE" mimetype
+	zip -Xr9Dq "$NEWFILE" META-INF
 	zip -Xr9Dq "$NEWFILE" ./*
 }
 
