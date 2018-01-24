@@ -19,6 +19,7 @@ RES=$(dialog --title "Available sessions" \
 	"LOAD TMUXP" "" \
 	"NEW SESSION" "" \
 	"BASH" "" \
+	"PDMENU" "" \
 	"TMUX-IPython" "" \
 	"TMUX-mocp" "" \
 	2>&1 1>&3)
@@ -47,6 +48,10 @@ case $RES in
 		;;
 	"BASH")
 		bash --login
+		exit 0
+		;;
+	"PDMENU")
+		pdmenu -c
 		exit 0
 		;;
 	"TMUX-IPython")
