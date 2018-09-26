@@ -27,7 +27,7 @@ echo "OUT: $OUT"
 case "$EXT" in
 	html|htm)
 		#OPT='--breadth-first --level1-toc '//h:h1' --level2-toc '//h:h2' --level3-toc '//h:h3' --disable-format-scene-breaks'
-		pandoc -t epub3 --smart --webtex --epub-chapter-level=1 -o "$OUT" "$@"
+		pandoc -t epub3+smart --webtex --epub-chapter-level=1 -o "$OUT" "$@"
 		;;
 	*)
 		# calibre for other
@@ -40,5 +40,3 @@ case "$EXT" in
 			--disable-format-scene-breaks "$@"
 		;;
 esac
-
-

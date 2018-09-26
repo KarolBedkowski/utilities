@@ -45,5 +45,5 @@ echo "URLPATH: $URLPATH"
 
 (
 	cd $(dirname "$TEMP")
-	pandoc -t epub3 --smart --webtex --epub-chapter-level=1 -o "$OUT" "$TEMP"
+	pandoc -t epub3+smart --webtex --epub-chapter-level=1 -o "$OUT" "$TEMP"
 )
