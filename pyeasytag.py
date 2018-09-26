@@ -3,7 +3,7 @@
 """ Fix tags in mp3/ogg files (i.e. from Jamendo); rename files. """
 
 __author__ = "Karol Będkowski"
-__copyright__ = "Copyright (c) Karol Będkowski, 2014-2016"
+__copyright__ = "Copyright (c) Karol Będkowski, 2014-2018"
 __version__ = "2015-04-19"
 __licence__ = "GPLv2"
 
@@ -228,13 +228,13 @@ def _fix_jamendo_tags(tags, filename, _idx, _num_files, opts):
 
 
 def _fix_youtube_tags(tags, filename, _idx, _num_files, _opts):
-    fmatch = re.match(r'(.+?) - (.+?)-(.+?)\....', filename)
+    fmatch = re.match(r'(.+?) - (.+?)-(.+?)\.....?', filename)
     if fmatch:
         tags['artist'] = [fmatch.group(1)]
         tags['title'] = [fmatch.group(2)]
         return tags
 
-    fmatch = re.match(r'(.+?)-(.+?)\....', filename)
+    fmatch = re.match(r'(.+?)-(.+?)\.....?', filename)
     if fmatch:
         tags['title'] = [fmatch.group(1)]
         return tags
@@ -245,7 +245,8 @@ def _fix_youtube_tags(tags, filename, _idx, _num_files, _opts):
 
 def _accepted_file(filename):
     return os.path.isfile(filename) and \
-        os.path.splitext(filename)[1].lower() in ('.mp3', '.ogg')
+        os.path.splitext(filename)[1].lower() in ('.mp3', '.ogg', '.m4a',
+                                                  '.opus')
 
 
 def _rename_file(filename, tags, opts):
