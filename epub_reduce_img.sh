@@ -25,11 +25,24 @@ function main() {
 	cd "$TEMPDIR"
 	unzip "$EPUBNAME"
 	rm -f "$EPUBNAME"
-	find . \( -name '*.png' -or -name '*.jpg' \) \
+
+	log "png..."
+	find . -type f -name '*.png'  \
 		-print \
-		-exec mogrify -resize 600x800\> -define png:compression-level=9 -quality 60  {} ';' \
+		-exec mogrify -colorspace gray -colors 16 -depth 4 -thumbnail 800x1024 -define png:compression-level=9 -quality 9 {} ';' \
+		-exec pngout-linux-pentium4 -f5 {} ';' \
 		-exec leanify -i 5 {} ';'
+		#-exec mogrify -resize 600x800\> -define png:compression-level=9 -quality 60  {} ';' \
+
+	log "jpg..."
+	find . -type f -name '*.jpg'  \
+		-print \
+		-exec mogrify -thumbnail 800x1024 -quality 85 {} ';' \
+		-exec leanify -i 5 {} ';'
+		#-exec mogrify -resize 600x800\> -define png:compression-level=9 -quality 60  {} ';' \
+
 	NEWFILE="$BASEDIR/${EPUBNAME%.epub}_new.epub"
+	log "New file: $NEWFILE"
 	zip -0Xq "$NEWFILE" mimetype
 	zip -Xr9Dq "$NEWFILE" META-INF
 	zip -Xr9Dq "$NEWFILE" ./*
