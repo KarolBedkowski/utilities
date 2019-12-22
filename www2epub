@@ -6,20 +6,13 @@ set -o errexit
 
 if [[ $# == 0 ]]; then
 	echo "missing args"
-	exit -1
+	exit 1
 fi
 
 URL="$1"
 # find filename
 HOSTPATH=${URL#*//}  # strip http[s]://
-URLPATH=${HOSTPATH#*/}  # strip hostname
-FNAME=${URLPATH##*/}
-
-if [[ $FNAME == "" ]]; then
-	URLPATH="${URLPATH}index.html"
-elif [[ ! $FNAME  =~ \.html ]]; then
-	URLPATH="${URLPATH}.html"
-fi
+HOSTPATH=${HOSTPATH#*/}
 
 CURRDIR=$(pwd)
 TEMPDIR=$(mktemp -d)
@@ -27,23 +20,36 @@ TEMPDIR=$(mktemp -d)
 trap "rm -rf -f -- '$TEMPDIR'" EXIT
 
 #TEMPDIR="/tmp/tmp.eGSYzmxRt9/"
-TEMP="$TEMPDIR/${URLPATH}"
 
 (
 	cd "$TEMPDIR"
 	wget -k -p -E -H -K -l 1 --reject '*.js' \
 		--reject '*.eot*' --reject '*.ttf' --reject '*.woff*' \
+		-t 2 \
+		--user-agent='Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0' \
 		-np -nH "$1"
 ) || true
 
-TITLE=$(pup title text{} <"$TEMP" | tr -dc '[[:print:]]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-OUT="$CURRDIR/$(basename "$TITLE").epub"
+if [[ -f "${TEMPDIR}/${HOSTPATH}" ]]; then
+	FNAME="${TEMPDIR}/${HOSTPATH}"
+else
+	FNAME=$(ls ${TEMPDIR}/${HOSTPATH}/*.htm? | head -1)
+fi
 
-echo "IN: $TEMP"
+TITLE=$(pup title text{} <"$FNAME" | \
+	tr -dc '[A-Za-z0-9,.-_=+()! ]' | \
+	sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]]{2,}/ /g')
+TITLE="${TITLE:-$FNAME}"
+
+echo "TITLE: $TITLE"
+
+STITLE=$(echo "$TITLE" | tr '[[:cntrl:]<>:"\\|?*]' '_')
+OUT="$CURRDIR/$(basename "$STITLE").epub"
+
+echo "IN: $FNAME"
 echo "OUT: $OUT"
-echo "URLPATH: $URLPATH"
 
 (
-	cd $(dirname "$TEMP")
-	pandoc -t epub3+smart --webtex --epub-chapter-level=1 -o "$OUT" "$TEMP"
+	cd $(dirname "$FNAME")
+	pandoc -t epub3+smart --webtex --epub-chapter-level=1 -o "$OUT" "$FNAME"
 )
