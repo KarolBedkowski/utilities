@@ -32,6 +32,13 @@ from tkinter import ttk
 import tkinter.messagebox as tkmessagebox
 import tkinter.font as tkfont
 
+try:
+    import notify2
+except ImportError:
+    notify2 = None
+else:
+    notify2.init('pomodoro.py')
+
 
 class Application(ttk.Frame):
     def __init__(self, master=None):
@@ -78,7 +85,7 @@ class Application(ttk.Frame):
             return
         if self._dst <= now:
             self._stop()
-            tkmessagebox.showinfo("pomidoro.py", "Done")
+            self._on_end()
             return
         left = self._dst - now
         text = "%0d:%02d" % (left / 60, left % 60)
@@ -86,6 +93,13 @@ class Application(ttk.Frame):
         self._timer_label.config(text=text)
         diff = int(max(1000 - (time.time() - now) * 1000, 500))
         self._afterid_updateloop = self.master.after(diff, self._timer)
+
+    def _on_end(self):
+        tkmessagebox.showinfo("pomidoro.py", "Done")
+        if notify2:
+            n = notify2.Notification(
+                "Pomodoro.py", "Time has passed", "notification-message-im")
+            n.show()
 
 
 def main():
@@ -95,6 +109,7 @@ def main():
     print(style.theme_names())
     app.master.title('pomidoro.py')
     app.mainloop()
+
 
 if __name__ == "__main__":
     main()
