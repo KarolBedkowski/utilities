@@ -95,11 +95,11 @@ class Application(ttk.Frame):
         self._afterid_updateloop = self.master.after(diff, self._timer)
 
     def _on_end(self):
-        tkmessagebox.showinfo("pomidoro.py", "Done")
         if notify2:
             n = notify2.Notification(
                 "Pomodoro.py", "Time has passed", "notification-message-im")
             n.show()
+        tkmessagebox.showinfo("pomidoro.py", "Done")
 
 
 def main():
